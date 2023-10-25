@@ -147,17 +147,6 @@ describe("ZapitP2PEscrow", function () {
       const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller, PAYMENT_WINDOW } =
         await loadFixture(createP2PEscrow);
 
-      await p2p.createEscrow(
-        TRADE_ID,
-        seller.address,
-        buyer.address,
-        ESCROW_VALUE,
-        PAYMENT_WINDOW,
-        {
-          value: ESCROW_VALUE,
-        }
-      );
-
       await expect(
         p2p.createEscrow(
           TRADE_ID,
@@ -170,6 +159,39 @@ describe("ZapitP2PEscrow", function () {
           }
         )
       ).to.be.revertedWith("Trade already exists");
+    });
+  });
+
+  describe("Testing the cancelling trade of escrow", function () {
+    it("Set the seller cannot cancel after payment has been done", async function () {
+      const { p2p, TRADE_ID, buyer } = await loadFixture(createP2PEscrow);
+
+      await p2p.connect(buyer).sellerCannotCancel(TRADE_ID, 0x01);
+
+      const escrow = await p2p.escrows(TRADE_ID);
+      expect(escrow.sellerCanCancelAfter).to.be.equal(0);
+    });
+
+    it("Test reverts if the seller cancel has been disabled", async function () {
+      const { p2p, TRADE_ID, seller, buyer } = await loadFixture(
+        createP2PEscrow
+      );
+
+      await p2p.connect(buyer).sellerCannotCancel(TRADE_ID, 0x01);
+
+      expect(
+        await p2p.connect(seller).sellerCancelation(TRADE_ID, 0x03)
+      ).to.not.emit(p2p, "CancelledBySeller");
+    });
+
+    it("Test to check the event when the seller is able to cancel escrow", async function () {
+      const { p2p, TRADE_ID, seller, buyer } = await loadFixture(
+        createP2PEscrow
+      );
+
+      expect(
+        await p2p.connect(seller).sellerCancelation(TRADE_ID, 0x03)
+      ).to.not.emit(p2p, "CancelledBySeller");
     });
   });
 });

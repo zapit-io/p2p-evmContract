@@ -201,7 +201,7 @@ contract ZapitP2PEscrow {
             _s
         );
 
-        Escrow memory _escrow = escrows[_tradeID];
+        Escrow storage _escrow = escrows[_tradeID];
 
         require(_escrow.exists, "Escrow does not exist");
 
@@ -245,7 +245,7 @@ contract ZapitP2PEscrow {
     /// @notice Cancel the escrow as a seller. Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
-    function sellerCancel(bytes16 _tradeID) external returns (bool) {
+    function sellerCancel(bytes32 _tradeID) external returns (bool) {
         return doSellerCancel(_tradeID);
     }
 
@@ -336,7 +336,7 @@ contract ZapitP2PEscrow {
     ///@return bool
 
     function sellerCannotCancel(
-        bytes16 _tradeID,
+        bytes32 _tradeID,
         uint8 _instructionByte
     )
         external
@@ -382,8 +382,9 @@ contract ZapitP2PEscrow {
     ///@param _tradeID Escrow "tradeID" parameter
     ///@param _instructionByte Instruction byte
     ///@return bool
-    function sellerCancel(
-        bytes16 _tradeID,
+
+    function sellerCancelation(
+        bytes32 _tradeID,
         uint8 _instructionByte
     )
         external
@@ -428,7 +429,7 @@ contract ZapitP2PEscrow {
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
     function doRelease(bytes16 _tradeID) private returns (bool) {
-        Escrow memory _escrow = escrows[_tradeID];
+        Escrow storage _escrow = escrows[_tradeID];
         if (!_escrow.exists) return false;
 
         delete escrows[_tradeID];
@@ -446,8 +447,8 @@ contract ZapitP2PEscrow {
     /// @param _tradeID Escrow "tradeID" parameter
     ///
     /// @return bool
-    function doDisableSellerCancel(bytes16 _tradeID) private returns (bool) {
-        Escrow memory _escrow = escrows[_tradeID];
+    function doDisableSellerCancel(bytes32 _tradeID) private returns (bool) {
+        Escrow storage _escrow = escrows[_tradeID];
 
         if (!_escrow.exists) return false;
 
@@ -456,6 +457,7 @@ contract ZapitP2PEscrow {
         if (_escrow.sellerCanCancelAfter == 0) return false;
 
         _escrow.sellerCanCancelAfter = 0;
+
         emit SellerCancelDisabled(_tradeID);
         return true;
     }
@@ -464,7 +466,7 @@ contract ZapitP2PEscrow {
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
     function doBuyerCancel(bytes16 _tradeID) private returns (bool) {
-        Escrow memory _escrow = escrows[_tradeID];
+        Escrow storage _escrow = escrows[_tradeID];
         bytes32 _tradeHash;
 
         if (!_escrow.exists) return false;
@@ -481,11 +483,14 @@ contract ZapitP2PEscrow {
     /// @notice Returns the ETH in escrow to the seller. Called by the seller. Sometimes unavailable.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
-    function doSellerCancel(bytes16 _tradeID) private returns (bool) {
-        Escrow memory _escrow = escrows[_tradeID];
-        if (!_escrow.exists) return false;
+    function doSellerCancel(bytes32 _tradeID) private returns (bool) {
+        Escrow storage _escrow = escrows[_tradeID];
 
-        if (msg.sender != _escrow._seller) return false;
+        if (!_escrow.exists) revert("Escrow does not exist");
+
+        if (msg.sender != _escrow._seller) {
+            return false;
+        }
 
         if (
             _escrow.sellerCanCancelAfter <= 1 ||
@@ -507,7 +512,7 @@ contract ZapitP2PEscrow {
     /// @return bool
     function doSellerRequestCancel(bytes16 _tradeID) private returns (bool) {
         // Called on unlimited payment window trades where the buyer is not responding
-        Escrow memory _escrow = escrows[_tradeID];
+        Escrow storage _escrow = escrows[_tradeID];
         if (!_escrow.exists) {
             return false;
         }

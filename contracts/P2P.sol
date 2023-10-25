@@ -46,15 +46,16 @@ contract LocalCryptosETHEscrows {
     +   Global settings   +
     ***********************/
 
-    // Address of the arbitrator (currently always localethereum staff)
+    // Address of the arbitrator
     address public arbitrator;
     // Address of the owner (who can withdraw collected fees)
     address public owner;
     address public inviterAddress;
-    // Addresses of the relayers (which addresses are allowed to forward signed instructions from parties)
-    mapping(address => bool) public relayers;
+
+    uint8 public fees; // fees for zapit
 
     uint32 public requestCancellationMinimumTime;
+
     // Cumulative balance of collected fees
     uint256 public feesAvailableForWithdraw;
 
@@ -100,6 +101,12 @@ contract LocalCryptosETHEscrows {
         // Cumulative cost of gas incurred by the relayer. This amount will be refunded to the owner
         // in the way of fees once the escrow has completed
         uint128 totalGasFeesSpentByRelayer;
+        // address of the buyer
+        address payable _buyer;
+        // address of the seller
+        address payable _seller;
+        // value of the escrow
+        uint256 _value;
     }
 
     // Mapping of active trades. The key here is a hash of the trade proprties
@@ -116,10 +123,11 @@ contract LocalCryptosETHEscrows {
     }
 
     /// @notice Initialize the contract.
-    constructor() {
+    constructor(uint8 _fees) {
         owner = msg.sender;
         arbitrator = msg.sender;
         inviterAddress = msg.sender;
+        fees = _fees;
         requestCancellationMinimumTime = 0 seconds;
     }
 
@@ -128,24 +136,20 @@ contract LocalCryptosETHEscrows {
     /// @param _seller The selling party
     /// @param _buyer The buying party
     /// @param _value The amount of the escrow, exclusive of the fee
-    /// @param _fee Localethereum's commission in 1/10000ths
     /// @param _paymentWindowInSeconds The time in seconds from escrow creation that the seller can cancel after
     function createEscrow(
         bytes16 _tradeID,
         address _seller,
         address _buyer,
         uint256 _value,
-        uint16 _fee,
         uint32 _paymentWindowInSeconds
     ) external payable {
         // The trade hash is created by tightly-concatenating and hashing properties of the trade.
         // This hash becomes the identifier of the escrow, and hence all these variables must be
         // supplied on future contract calls
-        bytes32 _tradeHash = keccak256(
-            abi.encodePacked(_tradeID, _seller, _buyer, _value, _fee)
-        );
+
         // Require that trade does not already exist
-        require(!escrows[_tradeHash].exists, "Trade already exists");
+        require(!escrows[_tradeID].exists, "Trade already exists");
 
         // Check transaction value against passed _value and make sure is not 0
         require(msg.value == _value && msg.value > 0, "Incorrect ETH sent");
@@ -155,28 +159,26 @@ contract LocalCryptosETHEscrows {
             : uint32(block.timestamp) + _paymentWindowInSeconds;
 
         // Add the escrow to the public mapping
-        escrows[_tradeHash] = Escrow(true, _sellerCanCancelAfter, 0);
-        emit Created(_tradeHash);
+        escrows[_tradeID] = Escrow(
+            true,
+            _sellerCanCancelAfter,
+            0,
+            _buyer,
+            _seller
+        );
+        emit Created(_tradeID);
     }
 
     uint16 constant GAS_doResolveDispute = 45368;
 
     /// @notice Called by the arbitrator to resolve a dispute. Requires a signature from either party.
     /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _seller Escrow "seller" parameter
-    /// @param _buyer Escrow "buyer" parameter
-    /// @param _value Escrow "value" parameter
-    /// @param _fee Escrow "fee parameter
     /// @param _v Signature "v" component
     /// @param _r Signature "r" component
     /// @param _s Signature "s" component
     /// @param _buyerPercent What % should be distributed to the buyer (this is usually 0 or 100)
     function resolveDispute(
         bytes16 _tradeID,
-        address payable _seller,
-        address payable _buyer,
-        uint256 _value,
-        uint16 _fee,
         uint8 _v,
         bytes32 _r,
         bytes32 _s,
@@ -188,180 +190,120 @@ contract LocalCryptosETHEscrows {
             _r,
             _s
         );
+
+        Escrow memory _escrow = escrows[_tradeID];
+
+        require(_escrow.exists, "Escrow does not exist");
+
         require(
-            _signature == _buyer || _signature == _seller,
+            _signature == _escrow._buyer || _signature == _escrow._seller,
             "Must be buyer or seller"
         );
 
-        Escrow memory _escrow;
-        bytes32 _tradeHash;
-        (_escrow, _tradeHash) = getEscrowAndHash(
-            _tradeID,
-            _seller,
-            _buyer,
-            _value,
-            _fee
-        );
-        require(_escrow.exists, "Escrow does not exist");
         require(_buyerPercent <= 100, "_buyerPercent must be 100 or lower");
 
-        uint256 _totalFees = _escrow.totalGasFeesSpentByRelayer +
-            (GAS_doResolveDispute * uint128(tx.gasprice));
-        require(_value - _totalFees <= _value, "Overflow error"); // Prevent underflow
-        feesAvailableForWithdraw += _totalFees; // Add the the pot for localethereum to withdraw
+        uint256 _totalFees = (GAS_doResolveDispute * uint128(tx.gasprice));
+        require(
+            _escrow._value - _totalFees <= _escrow._value,
+            "Overflow error"
+        ); // Prevent underflow
+        feesAvailableForWithdraw += _totalFees; // Add the the pot for zapit to withdraw
 
-        delete escrows[_tradeHash];
-        emit DisputeResolved(_tradeHash);
+        delete escrows[_tradeID];
+        emit DisputeResolved(_tradeID);
         if (_buyerPercent > 0)
-            payable(_buyer).transfer(
-                ((_value - _totalFees) * _buyerPercent) / 100
+            payable(_escrow._buyer).transfer(
+                ((_escrow._value - _totalFees) * _buyerPercent) / 100
             );
         if (_buyerPercent < 100)
-            payable(_seller).transfer(
-                ((_value - _totalFees) * (100 - _buyerPercent)) / 100
+            payable(_escrow._seller).transfer(
+                ((_escrow._value - _totalFees) * (100 - _buyerPercent)) / 100
             );
     }
 
     /// @notice Release ETH in escrow to the buyer. Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _seller Escrow "seller" parameter
-    /// @param _buyer Escrow "buyer" parameter
-    /// @param _value Escrow "value" parameter
-    /// @param _fee Escrow "fee parameter
     /// @return bool
-    function release(
-        bytes16 _tradeID,
-        address _seller,
-        address payable _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) external returns (bool) {
-        require(msg.sender == _seller, "Must be seller");
-        return doRelease(_tradeID, _seller, _buyer, _value, _fee, 0);
+    function release(bytes16 _tradeID) external returns (bool) {
+        Escrow memory _escrow = escrows[_tradeID];
+        require(msg.sender == _escrow._seller, "Must be seller");
+        return
+            doRelease(
+                _tradeID,
+                _escrow._seller,
+                _escrow._buyer,
+                _escrow._value,
+                _escrow._fee,
+                0
+            );
     }
 
     /// @notice Disable the seller from cancelling (i.e. "mark as paid"). Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _seller Escrow "seller" parameter
-    /// @param _buyer Escrow "buyer" parameter
-    /// @param _value Escrow "value" parameter
-    /// @param _fee Escrow "fee parameter
     /// @return bool
-    function disableSellerCancel(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) external returns (bool) {
-        require(msg.sender == _buyer, "Must be buyer");
+    function disableSellerCancel(bytes16 _tradeID) external returns (bool) {
+        Escrow memory _escrow = escrows[_tradeID];
+        require(msg.sender == _escrow._buyer, "Must be buyer");
         return
-            doDisableSellerCancel(_tradeID, _seller, _buyer, _value, _fee, 0);
+            doDisableSellerCancel(
+                _tradeID,
+                _escrow._seller,
+                _escrow._buyer,
+                _escrow._value,
+                _escrow._fee,
+                0
+            );
     }
 
     /// @notice Cancel the escrow as a buyer. Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _seller Escrow "seller" parameter
-    /// @param _buyer Escrow "buyer" parameter
-    /// @param _value Escrow "value" parameter
-    /// @param _fee Escrow "fee parameter
     /// @return bool
-    function buyerCancel(
-        bytes16 _tradeID,
-        address payable _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) external returns (bool) {
-        require(msg.sender == _buyer, "Must be buyer");
-        return doBuyerCancel(_tradeID, _seller, _buyer, _value, _fee, 0);
+    function buyerCancel(bytes16 _tradeID) external returns (bool) {
+        Escrow memory _escrow = escrows[_tradeID];
+        require(msg.sender == _escrow._buyer, "Must be buyer");
+        return
+            doBuyerCancel(
+                _tradeID,
+                _escrow._seller,
+                _escrow._buyer,
+                _escrow._value,
+                _escrow._fee,
+                0
+            );
     }
 
     /// @notice Cancel the escrow as a seller. Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _seller Escrow "seller" parameter
-    /// @param _buyer Escrow "buyer" parameter
-    /// @param _value Escrow "value" parameter
-    /// @param _fee Escrow "fee parameter
     /// @return bool
-    function sellerCancel(
-        bytes16 _tradeID,
-        address payable _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) external returns (bool) {
-        require(msg.sender == _seller, "Must be seller");
-        return doSellerCancel(_tradeID, _seller, _buyer, _value, _fee, 0);
+    function sellerCancel(bytes16 _tradeID) external returns (bool) {
+        Escrow memory _escrow = escrows[_tradeID];
+        require(msg.sender == _escrow._seller, "Must be seller");
+        return
+            doSellerCancel(
+                _tradeID,
+                _escrow._seller,
+                _escrow._buyer,
+                _escrow._value,
+                _escrow._fee,
+                0
+            );
     }
 
     /// @notice Request to cancel as a seller. Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _seller Escrow "seller" parameter
-    /// @param _buyer Escrow "buyer" parameter
-    /// @param _value Escrow "value" parameter
-    /// @param _fee Escrow "fee parameter
     /// @return bool
-    function sellerRequestCancel(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) external returns (bool) {
-        require(msg.sender == _seller, "Must be seller");
+    function sellerRequestCancel(bytes16 _tradeID) external returns (bool) {
+        Escrow memory _escrow = escrows[_tradeID];
+        require(msg.sender == _escrow._seller, "Must be seller");
         return
-            doSellerRequestCancel(_tradeID, _seller, _buyer, _value, _fee, 0);
-    }
-
-    uint16 constant GAS_batchRelayBase = 32720;
-
-    /// @notice Relay multiple signed instructions from parties of escrows.
-    /// @param _tradeID List of _tradeID values
-    /// @param _seller List of _seller values
-    /// @param _buyer List of _buyer values
-    /// @param _value List of _value values
-    /// @param _fee List of _fee values
-    /// @param _maximumGasPrice List of _maximumGasPrice values
-    /// @param _v List of signature "v" components
-    /// @param _r List of signature "r" components
-    /// @param _s List of signature "s" components
-    /// @param _instructionByte List of _instructionByte values
-    /// @return bool List of results
-    function batchRelay(
-        bytes16[] memory _tradeID,
-        address payable[] memory _seller,
-        address payable[] memory _buyer,
-        uint256[] memory _value,
-        uint16[] memory _fee,
-        uint128[] memory _maximumGasPrice,
-        uint8[] memory _v,
-        bytes32[] memory _r,
-        bytes32[] memory _s,
-        uint8[] memory _instructionByte
-    ) public returns (bool[] memory) {
-        bool[] memory _results = new bool[](_tradeID.length);
-        uint128 _additionalGas = uint128(
-            relayers[msg.sender] == true
-                ? (GAS_batchRelayBase / _tradeID.length)
-                : 0
-        );
-        for (uint8 i = 0; i < _tradeID.length; i++) {
-            _results[i] = relay(
-                _tradeID[i],
-                _seller[i],
-                _buyer[i],
-                _value[i],
-                _fee[i],
-                _maximumGasPrice[i],
-                _v[i],
-                _r[i],
-                _s[i],
-                _instructionByte[i],
-                _additionalGas
+            doSellerRequestCancel(
+                _tradeID,
+                _escrow._seller,
+                _escrow._buyer,
+                _escrow._value,
+                _escrow._fee,
+                0
             );
-        }
-        return _results;
     }
 
     /// @notice Withdraw fees collected by the contract. Only the owner can call this.
@@ -390,19 +332,6 @@ contract LocalCryptosETHEscrows {
     /// @param _newOwner Address of the replacement owner
     function setOwner(address _newOwner) external onlyOwner {
         owner = _newOwner;
-    }
-
-    /// @notice Enable or disable a relayer address. Only the owner can call this.
-    /// @param _newRelayer Address of the relayer
-    /// @param _enabled Whether the relayer is enabled
-    function setRelayer(address _newRelayer, bool _enabled) external onlyOwner {
-        relayers[_newRelayer] = _enabled;
-    }
-
-    /// @notice Change the inviter to a new address. Only the owner can call this.
-    /// @param _newInviterAddress Address of the inviter address
-    function setInviterAddress(address _newInviterAddress) external onlyOwner {
-        inviterAddress = _newInviterAddress;
     }
 
     /// @notice Change the requestCancellationMinimumTime. Only the owner can call this.
@@ -449,6 +378,24 @@ contract LocalCryptosETHEscrows {
         uint256 _value
     ) external onlyOwner {
         _tokenContract.approve(_spender, _value);
+    }
+
+    ///@notice Called buy the buyer to disable seller cancel once tha payment has been done
+    ///@param _tradeID Escrow "tradeID" parameter
+    ///@param _instructionByte Instruction byte
+    ///@return bool
+
+    function sellerCannotCancel(
+        bytes16 _tradeID,
+        uint8 _instructionByte
+    ) external returns (bool) {
+        Escrow memory _escrow = escrows[_tradeID];
+        require(msg.sender == _escrow._buyer, "Must be buyer");
+        require(
+            _instructionByte == INSTRUCTION_SELLER_CANNOT_CANCEL,
+            "Instruction byte doesn't match with the operation!"
+        );
+        doDisableSellerCancel(_tradeID);
     }
 
     /// @notice Relay a signed instruction from a party of an escrow.
@@ -628,35 +575,16 @@ contract LocalCryptosETHEscrows {
     /// @param _buyer Escrow "buyer" parameter
     /// @param _value Escrow "value" parameter
     /// @param _fee Escrow "fee parameter
-    /// @param _additionalGas Additional gas to be deducted after this operation
+    ///
     /// @return bool
-    function doDisableSellerCancel(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee,
-        uint128 _additionalGas
-    ) private returns (bool) {
-        Escrow memory _escrow;
-        bytes32 _tradeHash;
-        (_escrow, _tradeHash) = getEscrowAndHash(
-            _tradeID,
-            _seller,
-            _buyer,
-            _value,
-            _fee
-        );
+    function doDisableSellerCancel(bytes16 _tradeID) private returns (bool) {
+        Escrow memory _escrow = escrows[_tradeID];
+        require(_escrow.exists, "Escrow does not exist");
+
         if (!_escrow.exists) return false;
         if (_escrow.sellerCanCancelAfter == 0) return false;
-        escrows[_tradeHash].sellerCanCancelAfter = 0;
-        emit SellerCancelDisabled(_tradeHash);
-        if (relayers[msg.sender] == true) {
-            increaseGasSpent(
-                _tradeHash,
-                GAS_doDisableSellerCancel + _additionalGas
-            );
-        }
+        _escrow[_tradeID].sellerCanCancelAfter = 0;
+        emit SellerCancelDisabled(_tradeID);
         return true;
     }
 

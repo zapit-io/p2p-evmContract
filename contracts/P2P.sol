@@ -380,7 +380,7 @@ contract LocalCryptosETHEscrows {
         _tokenContract.approve(_spender, _value);
     }
 
-    ///@notice Called buy the buyer to disable seller cancel once tha payment has been done
+    ///@notice Called buy the buyer to disable seller cancellation option once tha payment has been done
     ///@param _tradeID Escrow "tradeID" parameter
     ///@param _instructionByte Instruction byte
     ///@return bool

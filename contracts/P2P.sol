@@ -104,8 +104,6 @@ contract ZapitP2PEscrow {
         address payable _seller;
         // value of the escrow
         uint256 _value;
-        // fees to be charged from this escrow
-        uint32 _fees;
     }
 
     // Mapping of active trades. The key here is a hash of the trade proprties
@@ -136,7 +134,7 @@ contract ZapitP2PEscrow {
     constructor(uint8 _fees) {
         owner = msg.sender;
         arbitrator = msg.sender;
-        fees = _fees;
+        fees = _fees; // stored in terms of basis-points
         requestCancellationMinimumTime = 0 seconds;
     }
 
@@ -174,8 +172,8 @@ contract ZapitP2PEscrow {
             0,
             payable(_buyer),
             payable(_seller),
-            _value,
-            uint32(fees * _value)
+            _value
+            // uint32((fees / 100) * _value) // if the fees is 1 then the quantifiable value is 0.01%
         );
         emit Created(_tradeID);
     }
@@ -213,22 +211,15 @@ contract ZapitP2PEscrow {
 
         require(_buyerPercent <= 100, "_buyerPercent must be 100 or lower");
 
-        uint256 _totalFees = (GAS_doResolveDispute * uint128(tx.gasprice));
-        require(
-            _escrow._value - _totalFees <= _escrow._value,
-            "Overflow error"
-        ); // Prevent underflow
-        feesAvailableForWithdraw += _totalFees; // Add the the pot for zapit to withdraw
-
         delete escrows[_tradeID];
         emit DisputeResolved(_tradeID);
-        if (_buyerPercent > 0)
+        if (_buyerPercent == 100)
             payable(_escrow._buyer).transfer(
-                ((_escrow._value - _totalFees) * _buyerPercent) / 100
+                ((_escrow._value) * _buyerPercent) / 100
             );
-        if (_buyerPercent < 100)
+        if (_buyerPercent == 0)
             payable(_escrow._seller).transfer(
-                ((_escrow._value - _totalFees) * (100 - _buyerPercent)) / 100
+                ((_escrow._value) * (100 - _buyerPercent)) / 100
             );
     }
 
@@ -421,9 +412,10 @@ contract ZapitP2PEscrow {
         uint256 _value,
         uint32 _fee
     ) private {
-        if (_value - _fee > _value) return;
+        uint256 _totalFees = (_fee / 10000) * _value;
+        if (_value - _totalFees > _value) return;
         // Add fees to the pot for zapit to withdraw (now it's 0)
-        feesAvailableForWithdraw += _fee;
+        feesAvailableForWithdraw += _totalFees;
         payable(_to).transfer(_value);
     }
 
@@ -440,7 +432,7 @@ contract ZapitP2PEscrow {
         transferMinusFees(
             _escrow._buyer,
             _escrow._value,
-            _escrow._fees // fees to be paid to zapit
+            fees // fees to be paid to zapit
         );
         return true;
     }

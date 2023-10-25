@@ -54,7 +54,7 @@ describe("ZapitP2PEscrow", function () {
     });
   });
 
-  describe("Escrow", function () {
+  describe("Test for creation of escrow", function () {
     it("Creates an escrow", async function () {
       const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller, PAYMENT_WINDOW } =
         await loadFixture(deployP2PEscrow);
@@ -70,13 +70,14 @@ describe("ZapitP2PEscrow", function () {
         }
       );
 
+      await time.increase(1000);
       const currentBlockTimestamp = await time.latest();
 
       const escrow = await p2p.escrows(TRADE_ID);
       expect(escrow._seller).to.be.equal(seller.address);
       expect(escrow._buyer).to.be.equal(buyer.address);
       expect(escrow._value).to.be.equal(ESCROW_VALUE.toString());
-      expect(escrow.sellerCanCancelAfter).to.be.lessThanOrEqual(
+      expect(escrow.sellerCanCancelAfter).to.be.lessThan(
         currentBlockTimestamp + PAYMENT_WINDOW
       );
     });

@@ -14,6 +14,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.18;
 
+import "hardhat/console.sol";
+
 abstract contract Token {
     function transfer(
         address _to,
@@ -164,6 +166,8 @@ contract ZapitP2PEscrow {
         uint32 _sellerCanCancelAfter = _paymentWindowInSeconds == 0
             ? 1
             : uint32(block.timestamp) + _paymentWindowInSeconds;
+
+        console.log("timestamp", _sellerCanCancelAfter);
 
         // Add the escrow to the public mapping
         escrows[_tradeID] = Escrow(

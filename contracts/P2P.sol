@@ -178,8 +178,6 @@ contract ZapitP2PEscrow {
         emit Created(_tradeID);
     }
 
-    uint16 constant GAS_doResolveDispute = 45368;
-
     /// @notice Called by the arbitrator to resolve a dispute. Requires a signature from either party.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @param _v Signature "v" component
@@ -211,15 +209,19 @@ contract ZapitP2PEscrow {
 
         require(_buyerPercent <= 100, "_buyerPercent must be 100 or lower");
 
+        uint256 _totalFees = (_escrow._value * fees) / 10000;
+
+        feesAvailableForWithdraw += _totalFees;
+
         delete escrows[_tradeID];
         emit DisputeResolved(_tradeID);
         if (_buyerPercent == 100)
             payable(_escrow._buyer).transfer(
-                ((_escrow._value) * _buyerPercent) / 100
+                ((_escrow._value - _totalFees) * _buyerPercent) / 100
             );
         if (_buyerPercent == 0)
             payable(_escrow._seller).transfer(
-                ((_escrow._value) * (100 - _buyerPercent)) / 100
+                ((_escrow._value - _totalFees) * (100 - _buyerPercent)) / 100
             );
     }
 

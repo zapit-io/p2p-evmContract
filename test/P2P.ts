@@ -200,5 +200,33 @@ describe("ZapitP2PEscrow", function () {
         "CancelledByBuyer"
       );
     });
+    it("Test to check the user received the balance from the escrow", async function () {
+      const { p2p, TRADE_ID, seller, ESCROW_VALUE, buyer } = await loadFixture(
+        createP2PEscrow
+      );
+
+      let prevSellerBalance: number | string = (
+        await ethers.provider.getBalance(seller.address)
+      ).toString();
+
+      prevSellerBalance = parseFloat(ethers.formatEther(prevSellerBalance));
+
+      await p2p.connect(buyer).buyerCancel(TRADE_ID, 0x02);
+
+      let sellerBalance: number | string = (
+        await ethers.provider.getBalance(seller.address)
+      ).toString();
+
+      sellerBalance = parseFloat(ethers.formatEther(sellerBalance));
+
+      console.log({
+        prevSellerBalance,
+        sellerBalance,
+      });
+
+      expect(sellerBalance).to.be.equal(
+        prevSellerBalance + parseFloat(ethers.formatEther(ESCROW_VALUE))
+      );
+    });
   });
 });

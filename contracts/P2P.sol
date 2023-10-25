@@ -133,6 +133,7 @@ contract ZapitP2PEscrow {
     }
 
     /// @notice Initialize the contract.
+    /// test ✅
     constructor(uint8 _fees) {
         owner = msg.sender;
         arbitrator = msg.sender;
@@ -146,6 +147,7 @@ contract ZapitP2PEscrow {
     /// @param _buyer The buying party
     /// @param _value The amount of the escrow, exclusive of the fee
     /// @param _paymentWindowInSeconds The time in seconds from escrow creation that the seller can cancel after
+    /// test ✅
     function createEscrow(
         bytes32 _tradeID,
         address _seller,
@@ -166,8 +168,6 @@ contract ZapitP2PEscrow {
         uint32 _sellerCanCancelAfter = _paymentWindowInSeconds == 0
             ? 1
             : uint32(block.timestamp) + _paymentWindowInSeconds;
-
-        console.log("timestamp", _sellerCanCancelAfter);
 
         // Add the escrow to the public mapping
         escrows[_tradeID] = Escrow(

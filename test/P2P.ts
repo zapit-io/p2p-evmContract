@@ -35,6 +35,44 @@ describe("ZapitP2PEscrow", function () {
     };
   }
 
+  // fixture for using a created-escrow
+  async function createP2PEscrow() {
+    const {
+      p2p,
+      deployer,
+      arbitrator,
+      buyer,
+      seller,
+      ESCROW_VALUE,
+      PAYMENT_WINDOW,
+      TRADE_ID,
+      FEES,
+    } = await loadFixture(deployP2PEscrow);
+
+    await p2p.createEscrow(
+      TRADE_ID,
+      seller.address,
+      buyer.address,
+      ESCROW_VALUE,
+      PAYMENT_WINDOW,
+      {
+        value: ESCROW_VALUE,
+      }
+    );
+
+    return {
+      p2p,
+      deployer,
+      arbitrator,
+      buyer,
+      seller,
+      ESCROW_VALUE,
+      PAYMENT_WINDOW,
+      TRADE_ID,
+      FEES,
+    };
+  }
+
   describe("Deployment", function () {
     it("Should set the right initial data", async function () {
       const { p2p, deployer, FEES } = await loadFixture(deployP2PEscrow);
@@ -57,19 +95,7 @@ describe("ZapitP2PEscrow", function () {
   describe("Test for creation of escrow", function () {
     it("Creates an escrow", async function () {
       const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller, PAYMENT_WINDOW } =
-        await loadFixture(deployP2PEscrow);
-
-      await p2p.createEscrow(
-        TRADE_ID,
-        seller.address,
-        buyer.address,
-        ESCROW_VALUE,
-        PAYMENT_WINDOW,
-        {
-          value: ESCROW_VALUE,
-        }
-      );
-
+        await loadFixture(createP2PEscrow);
       await time.increase(1000);
       const currentBlockTimestamp = await time.latest();
 
@@ -81,9 +107,45 @@ describe("ZapitP2PEscrow", function () {
         currentBlockTimestamp + PAYMENT_WINDOW
       );
     });
-    it("Try to create an already existing escrow", async function () {
+    it("Emits and event when an escrow is created", async function () {
       const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller, PAYMENT_WINDOW } =
         await loadFixture(deployP2PEscrow);
+
+      await expect(
+        p2p.createEscrow(
+          TRADE_ID,
+          seller.address,
+          buyer.address,
+          ESCROW_VALUE,
+          PAYMENT_WINDOW,
+          {
+            value: ESCROW_VALUE,
+          }
+        )
+      )
+        .to.emit(p2p, "Created")
+        .withArgs(TRADE_ID);
+    });
+    it("Send wrong value to create an escrow", async function () {
+      const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller, PAYMENT_WINDOW } =
+        await loadFixture(deployP2PEscrow);
+
+      await expect(
+        p2p.createEscrow(
+          TRADE_ID,
+          seller.address,
+          buyer.address,
+          ESCROW_VALUE,
+          PAYMENT_WINDOW,
+          {
+            value: ethers.parseEther("0.01"),
+          }
+        )
+      ).to.be.revertedWith("Incorrect ETH sent");
+    });
+    it("Try to create an already existing escrow", async function () {
+      const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller, PAYMENT_WINDOW } =
+        await loadFixture(createP2PEscrow);
 
       await p2p.createEscrow(
         TRADE_ID,

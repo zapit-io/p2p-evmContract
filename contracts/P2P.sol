@@ -1,6 +1,4 @@
 /**
-   Copyright (c) 2021 LocalCryptos.com
-
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -14,7 +12,7 @@
    limitations under the License.
 */
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.7.6;
+pragma solidity ^0.8.18;
 
 abstract contract Token {
     function transfer(
@@ -39,9 +37,9 @@ abstract contract Token {
     ) public virtual returns (bool);
 }
 
-/// @title LocalCryptos ETH Escrows
-/// @author LocalCryptos
-contract LocalCryptosETHEscrows {
+/// @title Zapit P2P Escrows
+/// @author Zapit
+contract ZapitP2PEscrow {
     /***********************
     +   Global settings   +
     ***********************/
@@ -176,10 +174,10 @@ contract LocalCryptosETHEscrows {
             true,
             _sellerCanCancelAfter,
             0,
-            _buyer,
-            _seller,
+            payable(_buyer),
+            payable(_seller),
             _value,
-            (fees * _value)
+            uint32(fees * _value)
         );
         emit Created(_tradeID);
     }
@@ -236,89 +234,32 @@ contract LocalCryptosETHEscrows {
             );
     }
 
-    /// @notice Release ETH in escrow to the buyer. Direct call option.
-    /// @param _tradeID Escrow "tradeID" parameter
-    /// @return bool
-    function release(bytes16 _tradeID) external returns (bool) {
-        Escrow memory _escrow = escrows[_tradeID];
-        require(msg.sender == _escrow._seller, "Must be seller");
-        return
-            doRelease(
-                _tradeID,
-                _escrow._seller,
-                _escrow._buyer,
-                _escrow._value,
-                _escrow._fee,
-                0
-            );
-    }
-
     /// @notice Disable the seller from cancelling (i.e. "mark as paid"). Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
     function disableSellerCancel(bytes16 _tradeID) external returns (bool) {
-        Escrow memory _escrow = escrows[_tradeID];
-        require(msg.sender == _escrow._buyer, "Must be buyer");
-        return
-            doDisableSellerCancel(
-                _tradeID,
-                _escrow._seller,
-                _escrow._buyer,
-                _escrow._value,
-                _escrow._fee,
-                0
-            );
+        return doDisableSellerCancel(_tradeID);
     }
 
     /// @notice Cancel the escrow as a buyer. Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
     function buyerCancel(bytes16 _tradeID) external returns (bool) {
-        Escrow memory _escrow = escrows[_tradeID];
-        require(msg.sender == _escrow._buyer, "Must be buyer");
-        return
-            doBuyerCancel(
-                _tradeID,
-                _escrow._seller,
-                _escrow._buyer,
-                _escrow._value,
-                _escrow._fee,
-                0
-            );
+        return doBuyerCancel(_tradeID);
     }
 
     /// @notice Cancel the escrow as a seller. Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
     function sellerCancel(bytes16 _tradeID) external returns (bool) {
-        Escrow memory _escrow = escrows[_tradeID];
-        require(msg.sender == _escrow._seller, "Must be seller");
-        return
-            doSellerCancel(
-                _tradeID,
-                _escrow._seller,
-                _escrow._buyer,
-                _escrow._value,
-                _escrow._fee,
-                0
-            );
+        return doSellerCancel(_tradeID);
     }
 
     /// @notice Request to cancel as a seller. Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
     function sellerRequestCancel(bytes16 _tradeID) external returns (bool) {
-        Escrow memory _escrow = escrows[_tradeID];
-        require(msg.sender == _escrow._seller, "Must be seller");
-        return
-            doSellerRequestCancel(
-                _tradeID,
-                _escrow._seller,
-                _escrow._buyer,
-                _escrow._value,
-                _escrow._fee,
-                0
-            );
+        return doSellerRequestCancel(_tradeID);
     }
 
     /// @notice Withdraw fees collected by the contract. Only the owner can call this.
@@ -408,7 +349,7 @@ contract LocalCryptosETHEscrows {
         matchInstruction(_instructionByte, INSTRUCTION_SELLER_CANNOT_CANCEL)
         returns (bool)
     {
-        doDisableSellerCancel(_tradeID);
+        return doDisableSellerCancel(_tradeID);
     }
 
     ///@notice Called buy the buyer to cancel the escrow and returning the funds to the seller
@@ -424,7 +365,7 @@ contract LocalCryptosETHEscrows {
         matchInstruction(_instructionByte, INSTRUCTION_BUYER_CANCEL)
         returns (bool)
     {
-        doBuyerCancel(_tradeID);
+        return doBuyerCancel(_tradeID);
     }
 
     ///@notice Called buy the seller to release the escrow
@@ -440,7 +381,7 @@ contract LocalCryptosETHEscrows {
         matchInstruction(_instructionByte, INSTRUCTION_RELEASE)
         returns (bool)
     {
-        doRelease(_tradeID);
+        return doRelease(_tradeID);
     }
 
     ///@notice Called buy the seller to cancel the escrow
@@ -455,7 +396,7 @@ contract LocalCryptosETHEscrows {
         matchInstruction(_instructionByte, INSTRUCTION_SELLER_CANCEL)
         returns (bool)
     {
-        doSellerCancel(_tradeID);
+        return doSellerCancel(_tradeID);
     }
 
     ///@notice Called buy the seller to request for cancelling an escrow
@@ -470,127 +411,23 @@ contract LocalCryptosETHEscrows {
         matchInstruction(_instructionByte, INSTRUCTION_SELLER_REQUEST_CANCEL)
         returns (bool)
     {
-        doSellerRequestCancel(_tradeID);
-    }
-
-    /// @notice Relay a signed instruction from a party of an escrow.
-    /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _seller Escrow "seller" parameter
-    /// @param _buyer Escrow "buyer" parameter
-    /// @param _value Escrow "value" parameter
-    /// @param _fee Escrow "fee parameter
-    /// @param _maximumGasPrice Maximum gas price permitted for the relayer (set by the instructor)
-    /// @param _v Signature "v" component
-    /// @param _r Signature "r" component
-    /// @param _s Signature "s" component
-    /// @param _additionalGas Additional gas to be deducted after this operation
-    /// @return bool
-    function relay(
-        bytes16 _tradeID,
-        address payable _seller,
-        address payable _buyer,
-        uint256 _value,
-        uint16 _fee,
-        uint128 _maximumGasPrice,
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s,
-        uint8 _instructionByte,
-        uint128 _additionalGas
-    ) private returns (bool) {
-        address _relayedSender = getRelayedSender(
-            _tradeID,
-            _instructionByte,
-            _maximumGasPrice,
-            _v,
-            _r,
-            _s
-        );
-        if (_relayedSender == _buyer) {
-            // Buyer's instructions:
-            if (_instructionByte == INSTRUCTION_SELLER_CANNOT_CANCEL) {
-                // Disable seller from cancelling
-                return
-                    doDisableSellerCancel(
-                        _tradeID,
-                        _seller,
-                        _buyer,
-                        _value,
-                        _fee,
-                        _additionalGas
-                    );
-            } else if (_instructionByte == INSTRUCTION_BUYER_CANCEL) {
-                // Cancel
-                return
-                    doBuyerCancel(
-                        _tradeID,
-                        _seller,
-                        _buyer,
-                        _value,
-                        _fee,
-                        _additionalGas
-                    );
-            }
-        } else if (_relayedSender == _seller) {
-            // Seller's instructions:
-            if (_instructionByte == INSTRUCTION_RELEASE) {
-                // Release
-                return
-                    doRelease(
-                        _tradeID,
-                        _seller,
-                        _buyer,
-                        _value,
-                        _fee,
-                        _additionalGas
-                    );
-            } else if (_instructionByte == INSTRUCTION_SELLER_CANCEL) {
-                // Cancel
-                return
-                    doSellerCancel(
-                        _tradeID,
-                        _seller,
-                        _buyer,
-                        _value,
-                        _fee,
-                        _additionalGas
-                    );
-            } else if (_instructionByte == INSTRUCTION_SELLER_REQUEST_CANCEL) {
-                // Request to cancel
-                return
-                    doSellerRequestCancel(
-                        _tradeID,
-                        _seller,
-                        _buyer,
-                        _value,
-                        _fee,
-                        _additionalGas
-                    );
-            }
-        }
-        return false;
-    }
-
-    /// @notice Increase the amount of gas to be charged later on completion of an escrow
-    /// @param _tradeHash Trade hash
-    /// @param _gas Gas cost
-    function increaseGasSpent(bytes32 _tradeHash, uint128 _gas) private {
-        escrows[_tradeHash].totalGasFeesSpentByRelayer +=
-            _gas *
-            uint128(tx.gasprice);
+        return doSellerRequestCancel(_tradeID);
     }
 
     /// @notice Transfer the value of an escrow, minus the fees
     /// @param _to Recipient address
     /// @param _value Value of the transfer
-    function transferMinusFees(address payable _to, uint256 _value) private {
-        // if (_value - _fee > _value) return;
-        // // Add fees to the pot for localethereum to withdraw (now it's 0)
-        // feesAvailableForWithdraw += _fee;
+
+    function transferMinusFees(
+        address payable _to,
+        uint256 _value,
+        uint32 _fee
+    ) private {
+        if (_value - _fee > _value) return;
+        // Add fees to the pot for zapit to withdraw (now it's 0)
+        feesAvailableForWithdraw += _fee;
         payable(_to).transfer(_value);
     }
-
-    uint16 constant GAS_doRelease = 12664;
 
     /// @notice Release escrow to the buyer. This completes it and removes it from the mapping.
     /// @param _tradeID Escrow "tradeID" parameter
@@ -598,6 +435,7 @@ contract LocalCryptosETHEscrows {
     function doRelease(bytes16 _tradeID) private returns (bool) {
         Escrow memory _escrow = escrows[_tradeID];
         if (!_escrow.exists) return false;
+
         delete escrows[_tradeID];
 
         emit Released(_tradeID);
@@ -608,8 +446,6 @@ contract LocalCryptosETHEscrows {
         );
         return true;
     }
-
-    uint16 constant GAS_doDisableSellerCancel = 16568;
 
     /// @notice Prevents the seller from cancelling an escrow. Used to "mark as paid" by the buyer.
     /// @param _tradeID Escrow "tradeID" parameter
@@ -624,7 +460,7 @@ contract LocalCryptosETHEscrows {
 
         if (_escrow.sellerCanCancelAfter == 0) return false;
 
-        _escrow[_tradeID].sellerCanCancelAfter = 0;
+        _escrow.sellerCanCancelAfter = 0;
         emit SellerCancelDisabled(_tradeID);
         return true;
     }
@@ -635,16 +471,17 @@ contract LocalCryptosETHEscrows {
     function doBuyerCancel(bytes16 _tradeID) private returns (bool) {
         Escrow memory _escrow = escrows[_tradeID];
         bytes32 _tradeHash;
+
         if (!_escrow.exists) return false;
+
+        if (msg.sender != _escrow._buyer) return false;
 
         delete escrows[_tradeHash];
 
         emit CancelledByBuyer(_tradeID);
-        transferMinusFees(_escrow._seller, _escrow._value);
+        transferMinusFees(_escrow._seller, _escrow._value, 0);
         return true;
     }
-
-    uint16 constant GAS_doSellerCancel = 13714;
 
     /// @notice Returns the ETH in escrow to the seller. Called by the seller. Sometimes unavailable.
     /// @param _tradeID Escrow "tradeID" parameter
@@ -652,6 +489,8 @@ contract LocalCryptosETHEscrows {
     function doSellerCancel(bytes16 _tradeID) private returns (bool) {
         Escrow memory _escrow = escrows[_tradeID];
         if (!_escrow.exists) return false;
+
+        if (msg.sender != _escrow._seller) return false;
 
         if (
             _escrow.sellerCanCancelAfter <= 1 ||
@@ -668,8 +507,6 @@ contract LocalCryptosETHEscrows {
         return true;
     }
 
-    uint16 constant GAS_doSellerRequestCancel = 17004;
-
     /// @notice Request to cancel. Used if the buyer is unresponsive. Begins a countdown timer.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
@@ -679,6 +516,9 @@ contract LocalCryptosETHEscrows {
         if (!_escrow.exists) {
             return false;
         }
+
+        if (msg.sender != _escrow._seller) return false;
+
         if (_escrow.sellerCanCancelAfter != 1) {
             return false;
         }
@@ -689,52 +529,6 @@ contract LocalCryptosETHEscrows {
         emit SellerRequestedCancel(_tradeID);
 
         return true;
-    }
-
-    /// @notice Get the sender of the signed instruction.
-    /// @param _tradeID Identifier of the trade
-    /// @param _instructionByte Identifier of the instruction
-    /// @param _maximumGasPrice Maximum gas price permitted by the sender
-    /// @param _v Signature "v" component
-    /// @param _r Signature "r" component
-    /// @param _s Signature "s" component
-    /// @return address
-    function getRelayedSender(
-        bytes16 _tradeID,
-        uint8 _instructionByte,
-        uint128 _maximumGasPrice,
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s
-    ) private view returns (address) {
-        bytes32 _hash = keccak256(
-            abi.encodePacked(_tradeID, _instructionByte, _maximumGasPrice)
-        );
-        if (tx.gasprice > _maximumGasPrice) {
-            return (address)(0);
-        }
-        return recoverAddress(_hash, _v, _r, _s);
-    }
-
-    /// @notice Hashes the values and returns the matching escrow object and trade hash.
-    /// @dev Returns an empty escrow struct and 0 _tradeHash if not found.
-    /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _seller Escrow "seller" parameter
-    /// @param _buyer Escrow "buyer" parameter
-    /// @param _value Escrow "value" parameter
-    /// @param _fee Escrow "fee parameter
-    /// @return Escrow
-    function getEscrowAndHash(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) private view returns (Escrow memory, bytes32) {
-        bytes32 _tradeHash = keccak256(
-            abi.encodePacked(_tradeID, _seller, _buyer, _value, _fee)
-        );
-        return (escrows[_tradeHash], _tradeHash);
     }
 
     /// @notice Returns an empty escrow struct and 0 _tradeHash if not found.

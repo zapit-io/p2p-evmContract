@@ -48,7 +48,6 @@ contract ZapitP2PEscrow {
     address public arbitrator;
     // Address of the owner (who can withdraw collected fees)
     address public owner;
-    address public inviterAddress;
 
     uint8 public fees; // fees for zapit
 
@@ -137,7 +136,6 @@ contract ZapitP2PEscrow {
     constructor(uint8 _fees) {
         owner = msg.sender;
         arbitrator = msg.sender;
-        inviterAddress = msg.sender;
         fees = _fees;
         requestCancellationMinimumTime = 0 seconds;
     }

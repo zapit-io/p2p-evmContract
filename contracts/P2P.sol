@@ -235,13 +235,6 @@ contract ZapitP2PEscrow {
         return doDisableSellerCancel(_tradeID);
     }
 
-    /// @notice Cancel the escrow as a buyer. Direct call option.
-    /// @param _tradeID Escrow "tradeID" parameter
-    /// @return bool
-    function buyerCancel(bytes16 _tradeID) external returns (bool) {
-        return doBuyerCancel(_tradeID);
-    }
-
     /// @notice Cancel the escrow as a seller. Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
@@ -352,7 +345,7 @@ contract ZapitP2PEscrow {
     ///@return bool
 
     function buyerCancel(
-        bytes16 _tradeID,
+        bytes32 _tradeID,
         uint8 _instructionByte
     )
         external
@@ -465,7 +458,7 @@ contract ZapitP2PEscrow {
     /// @notice Cancels the trade and returns the ETH to the seller. Can only be called the buyer.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
-    function doBuyerCancel(bytes16 _tradeID) private returns (bool) {
+    function doBuyerCancel(bytes32 _tradeID) private returns (bool) {
         Escrow storage _escrow = escrows[_tradeID];
         bytes32 _tradeHash;
 

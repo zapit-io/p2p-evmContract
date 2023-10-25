@@ -191,5 +191,14 @@ describe("ZapitP2PEscrow", function () {
         await p2p.connect(seller).sellerCancelation(TRADE_ID, 0x03)
       ).to.not.emit(p2p, "CancelledBySeller");
     });
+
+    it("Test to check the event when the buyer is able to cancel escrow", async function () {
+      const { p2p, TRADE_ID, buyer } = await loadFixture(createP2PEscrow);
+
+      expect(await p2p.connect(buyer).buyerCancel(TRADE_ID, 0x02)).to.emit(
+        p2p,
+        "CancelledByBuyer"
+      );
+    });
   });
 });

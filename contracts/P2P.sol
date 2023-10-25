@@ -107,6 +107,8 @@ contract LocalCryptosETHEscrows {
         address payable _seller;
         // value of the escrow
         uint256 _value;
+        // fees to be charged from this escrow
+        uint32 _fees;
     }
 
     // Mapping of active trades. The key here is a hash of the trade proprties
@@ -114,6 +116,17 @@ contract LocalCryptosETHEscrows {
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Must be owner");
+        _;
+    }
+
+    modifier matchInstruction(
+        uint8 _instructionByte,
+        uint8 _expectedInstruction
+    ) {
+        require(
+            _instructionByte == _expectedInstruction,
+            "Instruction byte doesn't match with the operation!"
+        );
         _;
     }
 
@@ -164,7 +177,9 @@ contract LocalCryptosETHEscrows {
             _sellerCanCancelAfter,
             0,
             _buyer,
-            _seller
+            _seller,
+            _value,
+            (fees * _value)
         );
         emit Created(_tradeID);
     }
@@ -388,11 +403,11 @@ contract LocalCryptosETHEscrows {
     function sellerCannotCancel(
         bytes16 _tradeID,
         uint8 _instructionByte
-    ) external returns (bool) {
-        require(
-            _instructionByte == INSTRUCTION_SELLER_CANNOT_CANCEL,
-            "Instruction byte doesn't match with the operation!"
-        );
+    )
+        external
+        matchInstruction(_instructionByte, INSTRUCTION_SELLER_CANNOT_CANCEL)
+        returns (bool)
+    {
         doDisableSellerCancel(_tradeID);
     }
 
@@ -404,12 +419,58 @@ contract LocalCryptosETHEscrows {
     function buyerCancel(
         bytes16 _tradeID,
         uint8 _instructionByte
-    ) external returns (bool) {
-        require(
-            _instructionByte == INSTRUCTION_BUYER_CANCEL,
-            "Instruction byte doesn't match with the operation!"
-        );
+    )
+        external
+        matchInstruction(_instructionByte, INSTRUCTION_BUYER_CANCEL)
+        returns (bool)
+    {
         doBuyerCancel(_tradeID);
+    }
+
+    ///@notice Called buy the seller to release the escrow
+    ///@param _tradeID Escrow "tradeID" parameter
+    ///@param _instructionByte Instruction byte
+    ///@return bool
+
+    function releaseEscrow(
+        bytes16 _tradeID,
+        uint8 _instructionByte
+    )
+        external
+        matchInstruction(_instructionByte, INSTRUCTION_RELEASE)
+        returns (bool)
+    {
+        doRelease(_tradeID);
+    }
+
+    ///@notice Called buy the seller to cancel the escrow
+    ///@param _tradeID Escrow "tradeID" parameter
+    ///@param _instructionByte Instruction byte
+    ///@return bool
+    function sellerCancel(
+        bytes16 _tradeID,
+        uint8 _instructionByte
+    )
+        external
+        matchInstruction(_instructionByte, INSTRUCTION_SELLER_CANCEL)
+        returns (bool)
+    {
+        doSellerCancel(_tradeID);
+    }
+
+    ///@notice Called buy the seller to request for cancelling an escrow
+    ///@param _tradeID Escrow "tradeID" parameter
+    ///@param _instructionByte Instruction byte
+    ///@return bool
+    function sellerRequestCancel(
+        bytes16 _tradeID,
+        uint8 _instructionByte
+    )
+        external
+        matchInstruction(_instructionByte, INSTRUCTION_SELLER_REQUEST_CANCEL)
+        returns (bool)
+    {
+        doSellerRequestCancel(_tradeID);
     }
 
     /// @notice Relay a signed instruction from a party of an escrow.
@@ -533,39 +594,18 @@ contract LocalCryptosETHEscrows {
 
     /// @notice Release escrow to the buyer. This completes it and removes it from the mapping.
     /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _seller Escrow "seller" parameter
-    /// @param _buyer Escrow "buyer" parameter
-    /// @param _value Escrow "value" parameter
-    /// @param _fee Escrow "fee parameter
-    /// @param _additionalGas Additional gas to be deducted after this operation
     /// @return bool
-    function doRelease(
-        bytes16 _tradeID,
-        address _seller,
-        address payable _buyer,
-        uint256 _value,
-        uint16 _fee,
-        uint128 _additionalGas
-    ) private returns (bool) {
-        Escrow memory _escrow;
-        bytes32 _tradeHash;
-        (_escrow, _tradeHash) = getEscrowAndHash(
-            _tradeID,
-            _seller,
-            _buyer,
-            _value,
-            _fee
-        );
+    function doRelease(bytes16 _tradeID) private returns (bool) {
+        Escrow memory _escrow = escrows[_tradeID];
         if (!_escrow.exists) return false;
-        uint128 _gasFees = _escrow.totalGasFeesSpentByRelayer +
-            (
-                relayers[msg.sender] == true
-                    ? (GAS_doRelease + _additionalGas) * uint128(tx.gasprice)
-                    : 0
-            );
-        delete escrows[_tradeHash];
-        emit Released(_tradeHash);
-        transferMinusFees(_buyer, _value, _gasFees, _fee);
+        delete escrows[_tradeID];
+
+        emit Released(_tradeID);
+        transferMinusFees(
+            _escrow._buyer,
+            _escrow._value,
+            _escrow._fees // fees to be paid to zapit
+        );
         return true;
     }
 
@@ -608,54 +648,23 @@ contract LocalCryptosETHEscrows {
 
     /// @notice Returns the ETH in escrow to the seller. Called by the seller. Sometimes unavailable.
     /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _seller Escrow "seller" parameter
-    /// @param _buyer Escrow "buyer" parameter
-    /// @param _value Escrow "value" parameter
-    /// @param _fee Escrow "fee parameter
-    /// @param _additionalGas Additional gas to be deducted after this operation
     /// @return bool
-    function doSellerCancel(
-        bytes16 _tradeID,
-        address payable _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee,
-        uint128 _additionalGas
-    ) private returns (bool) {
-        Escrow memory _escrow;
-        bytes32 _tradeHash;
-        (_escrow, _tradeHash) = getEscrowAndHash(
-            _tradeID,
-            _seller,
-            _buyer,
-            _value,
-            _fee
-        );
-        if (!_escrow.exists) {
-            return false;
-        }
+    function doSellerCancel(bytes16 _tradeID) private returns (bool) {
+        Escrow memory _escrow = escrows[_tradeID];
+        if (!_escrow.exists) return false;
+
         if (
             _escrow.sellerCanCancelAfter <= 1 ||
             _escrow.sellerCanCancelAfter > block.timestamp
         ) {
             return false;
         }
-        if (
-            relayers[msg.sender] == false &&
-            _escrow.sellerCanCancelAfter + 12 hours > block.timestamp
-        ) {
+        if (_escrow.sellerCanCancelAfter + 12 hours > block.timestamp) {
             return false;
         }
-        uint128 _gasFees = _escrow.totalGasFeesSpentByRelayer +
-            (
-                relayers[msg.sender] == true
-                    ? (GAS_doSellerCancel + _additionalGas) *
-                        uint128(tx.gasprice)
-                    : 0
-            );
-        delete escrows[_tradeHash];
-        emit CancelledBySeller(_tradeHash);
-        transferMinusFees(_seller, _value, _gasFees, 0);
+        delete escrows[_tradeID];
+        emit CancelledBySeller(_tradeID);
+        transferMinusFees(_escrow._seller, _escrow._value, 0);
         return true;
     }
 
@@ -663,46 +672,22 @@ contract LocalCryptosETHEscrows {
 
     /// @notice Request to cancel. Used if the buyer is unresponsive. Begins a countdown timer.
     /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _seller Escrow "seller" parameter
-    /// @param _buyer Escrow "buyer" parameter
-    /// @param _value Escrow "value" parameter
-    /// @param _fee Escrow "fee parameter
-    /// @param _additionalGas Additional gas to be deducted after this operation
     /// @return bool
-    function doSellerRequestCancel(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee,
-        uint128 _additionalGas
-    ) private returns (bool) {
+    function doSellerRequestCancel(bytes16 _tradeID) private returns (bool) {
         // Called on unlimited payment window trades where the buyer is not responding
-        Escrow memory _escrow;
-        bytes32 _tradeHash;
-        (_escrow, _tradeHash) = getEscrowAndHash(
-            _tradeID,
-            _seller,
-            _buyer,
-            _value,
-            _fee
-        );
+        Escrow memory _escrow = escrows[_tradeID];
         if (!_escrow.exists) {
             return false;
         }
         if (_escrow.sellerCanCancelAfter != 1) {
             return false;
         }
-        escrows[_tradeHash].sellerCanCancelAfter =
+        escrows[_tradeID].sellerCanCancelAfter =
             uint32(block.timestamp) +
             requestCancellationMinimumTime;
-        emit SellerRequestedCancel(_tradeHash);
-        if (relayers[msg.sender] == true) {
-            increaseGasSpent(
-                _tradeHash,
-                GAS_doSellerRequestCancel + _additionalGas
-            );
-        }
+
+        emit SellerRequestedCancel(_tradeID);
+
         return true;
     }
 

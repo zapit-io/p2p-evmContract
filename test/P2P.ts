@@ -200,7 +200,7 @@ describe("ZapitP2PEscrow", function () {
         "CancelledByBuyer"
       );
     });
-    it("Test to check the user received the balance from the escrow", async function () {
+    it("Test to check the seller received the balance from the escrow", async function () {
       const { p2p, TRADE_ID, seller, ESCROW_VALUE, buyer } = await loadFixture(
         createP2PEscrow
       );

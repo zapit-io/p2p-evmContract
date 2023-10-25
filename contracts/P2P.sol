@@ -145,7 +145,7 @@ contract ZapitP2PEscrow {
     /// @param _value The amount of the escrow, exclusive of the fee
     /// @param _paymentWindowInSeconds The time in seconds from escrow creation that the seller can cancel after
     function createEscrow(
-        bytes16 _tradeID,
+        bytes32 _tradeID,
         address _seller,
         address _buyer,
         uint256 _value,
@@ -173,7 +173,6 @@ contract ZapitP2PEscrow {
             payable(_buyer),
             payable(_seller),
             _value
-            // uint32((fees / 100) * _value) // if the fees is 1 then the quantifiable value is 0.01%
         );
         emit Created(_tradeID);
     }

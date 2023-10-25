@@ -13,13 +13,26 @@ describe("ZapitP2PEscrow", function () {
   async function deployP2PEscrow() {
     // fees in terms of basis points
     const FEES = 100; // 1%
+    const TRADE_ID = ethers.encodeBytes32String("507f1f77bcf86cd799439011");
+    const PAYMENT_WINDOW = 600; // 10 minutes
+    const ESCROW_VALUE = ethers.parseEther("1");
 
     // Contracts are deployed using the first signer/account by default
-    const [deployer, otherAccount] = await ethers.getSigners();
+    const [deployer, arbitrator, buyer, seller] = await ethers.getSigners();
 
     const p2p = await ethers.deployContract("ZapitP2PEscrow", [FEES]);
 
-    return { p2p, deployer, otherAccount, FEES };
+    return {
+      p2p,
+      deployer,
+      arbitrator,
+      buyer,
+      seller,
+      ESCROW_VALUE,
+      PAYMENT_WINDOW,
+      TRADE_ID,
+      FEES,
+    };
   }
 
   describe("Deployment", function () {
@@ -38,6 +51,62 @@ describe("ZapitP2PEscrow", function () {
       expect(arbitrator).to.be.equal(deployer.address);
       expect(requestCancellationMinimumTime).to.be.equal(0);
       expect(fees).to.be.equal(FEES);
+    });
+  });
+
+  describe("Escrow", function () {
+    it("Creates an escrow", async function () {
+      const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller, PAYMENT_WINDOW } =
+        await loadFixture(deployP2PEscrow);
+
+      await p2p.createEscrow(
+        TRADE_ID,
+        seller.address,
+        buyer.address,
+        ESCROW_VALUE,
+        PAYMENT_WINDOW,
+        {
+          value: ESCROW_VALUE,
+        }
+      );
+
+      const currentBlockTimestamp = await time.latest();
+
+      const escrow = await p2p.escrows(TRADE_ID);
+      expect(escrow._seller).to.be.equal(seller.address);
+      expect(escrow._buyer).to.be.equal(buyer.address);
+      expect(escrow._value).to.be.equal(ESCROW_VALUE.toString());
+      expect(escrow.sellerCanCancelAfter).to.be.lessThanOrEqual(
+        currentBlockTimestamp + PAYMENT_WINDOW
+      );
+    });
+    it("Try to create an already existing escrow", async function () {
+      const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller, PAYMENT_WINDOW } =
+        await loadFixture(deployP2PEscrow);
+
+      await p2p.createEscrow(
+        TRADE_ID,
+        seller.address,
+        buyer.address,
+        ESCROW_VALUE,
+        PAYMENT_WINDOW,
+        {
+          value: ESCROW_VALUE,
+        }
+      );
+
+      await expect(
+        p2p.createEscrow(
+          TRADE_ID,
+          seller.address,
+          buyer.address,
+          ESCROW_VALUE,
+          PAYMENT_WINDOW,
+          {
+            value: ESCROW_VALUE,
+          }
+        )
+      ).to.be.revertedWith("Trade already exists");
     });
   });
 });

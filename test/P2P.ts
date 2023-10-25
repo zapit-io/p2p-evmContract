@@ -185,9 +185,7 @@ describe("ZapitP2PEscrow", function () {
     });
 
     it("Test to check the event when the seller is able to cancel escrow", async function () {
-      const { p2p, TRADE_ID, seller, buyer } = await loadFixture(
-        createP2PEscrow
-      );
+      const { p2p, TRADE_ID, seller } = await loadFixture(createP2PEscrow);
 
       expect(
         await p2p.connect(seller).sellerCancelation(TRADE_ID, 0x03)

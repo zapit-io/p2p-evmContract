@@ -186,7 +186,7 @@ contract ZapitP2PEscrow {
     /// @param _s Signature "s" component
     /// @param _buyerPercent What % should be distributed to the buyer (this is usually 0 or 100)
     function resolveDispute(
-        bytes16 _tradeID,
+        bytes32 _tradeID,
         uint8 _v,
         bytes32 _r,
         bytes32 _s,
@@ -229,7 +229,7 @@ contract ZapitP2PEscrow {
     /// @notice Disable the seller from cancelling (i.e. "mark as paid"). Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
-    function disableSellerCancel(bytes16 _tradeID) external returns (bool) {
+    function disableSellerCancel(bytes32 _tradeID) external returns (bool) {
         return doDisableSellerCancel(_tradeID);
     }
 
@@ -243,7 +243,7 @@ contract ZapitP2PEscrow {
     /// @notice Request to cancel as a seller. Direct call option.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
-    function sellerRequestCancel(bytes16 _tradeID) external returns (bool) {
+    function sellerRequestCancel(bytes32 _tradeID) external returns (bool) {
         return doSellerRequestCancel(_tradeID);
     }
 
@@ -359,7 +359,7 @@ contract ZapitP2PEscrow {
     ///@return bool
 
     function releaseEscrow(
-        bytes16 _tradeID,
+        bytes32 _tradeID,
         uint8 _instructionByte
     )
         external
@@ -390,7 +390,7 @@ contract ZapitP2PEscrow {
     ///@param _instructionByte Instruction byte
     ///@return bool
     function sellerRequestCancel(
-        bytes16 _tradeID,
+        bytes32 _tradeID,
         uint8 _instructionByte
     )
         external
@@ -419,7 +419,7 @@ contract ZapitP2PEscrow {
     /// @notice Release escrow to the buyer. This completes it and removes it from the mapping.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
-    function doRelease(bytes16 _tradeID) private returns (bool) {
+    function doRelease(bytes32 _tradeID) private returns (bool) {
         Escrow storage _escrow = escrows[_tradeID];
         if (!_escrow.exists) return false;
 
@@ -501,7 +501,7 @@ contract ZapitP2PEscrow {
     /// @notice Request to cancel. Used if the buyer is unresponsive. Begins a countdown timer.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @return bool
-    function doSellerRequestCancel(bytes16 _tradeID) private returns (bool) {
+    function doSellerRequestCancel(bytes32 _tradeID) private returns (bool) {
         // Called on unlimited payment window trades where the buyer is not responding
         Escrow storage _escrow = escrows[_tradeID];
         if (!_escrow.exists) {

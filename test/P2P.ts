@@ -48,6 +48,7 @@ describe("ZapitP2PEscrow", function () {
       TRADE_ID,
       FEES,
     } = await loadFixture(deployP2PEscrow);
+    const MESSAGE_DISPUTE = "ABCD";
 
     await p2p.createEscrow(
       TRADE_ID,
@@ -69,6 +70,7 @@ describe("ZapitP2PEscrow", function () {
       ESCROW_VALUE,
       PAYMENT_WINDOW,
       TRADE_ID,
+      MESSAGE_DISPUTE,
       FEES,
     };
   }
@@ -226,6 +228,42 @@ describe("ZapitP2PEscrow", function () {
 
       expect(sellerBalance).to.be.equal(
         prevSellerBalance + parseFloat(ethers.formatEther(ESCROW_VALUE))
+      );
+    });
+  });
+
+  describe("Testing the dispute of escrow", function () {
+    it("Test to check when the escrow amount is sent to the seller", async function () {
+      const {
+        p2p,
+        TRADE_ID,
+        seller,
+        buyer,
+        ESCROW_VALUE,
+        MESSAGE_DISPUTE,
+        deployer,
+      } = await loadFixture(createP2PEscrow);
+
+      // create a signature with trade-id and 0x06 by the buyer
+      const signature = await seller.signMessage(MESSAGE_DISPUTE);
+
+      console.log({
+        seller: seller.address,
+        signature,
+        deployer: deployer.address,
+        buyer: buyer.address,
+      });
+
+      await p2p.connect(deployer).resolveDispute(TRADE_ID, signature, 0);
+
+      let sellerBalance: number | string = (
+        await ethers.provider.getBalance(seller.address)
+      ).toString();
+
+      sellerBalance = parseFloat(ethers.formatEther(sellerBalance));
+
+      expect(sellerBalance).to.be.equal(
+        parseFloat(ethers.formatEther(ESCROW_VALUE))
       );
     });
   });

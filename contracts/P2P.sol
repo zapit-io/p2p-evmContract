@@ -185,10 +185,12 @@ contract ZapitP2PEscrow {
     /// @notice Called by the arbitrator to resolve a dispute. Requires a signature from either party.
     /// @param _tradeID Escrow "tradeID" parameter
     /// @param _sig Signature from either party
+    /// @param signer Address of the signer
     /// @param _buyerPercent What % should be distributed to the buyer (this is usually 0 or 100)
     function resolveDispute(
         bytes32 _tradeID,
         bytes memory _sig,
+        address signer,
         uint8 _buyerPercent
     ) external onlyArbitrator {
         bytes32 messageHash = keccak256(abi.encodePacked(MESSAGE_DISPUTE));
@@ -200,6 +202,7 @@ contract ZapitP2PEscrow {
 
         console.log("Address", _signature);
         console.log("Escrow-seller", _escrow._seller);
+        console.log("Signer", signer);
 
         require(_escrow.exists, "Escrow does not exist");
 
@@ -522,23 +525,6 @@ contract ZapitP2PEscrow {
         return true;
     }
 
-    /// @notice Returns an empty escrow struct and 0 _tradeHash if not found.
-    /// @param _h Data to be hashed
-    /// @param _v Signature "v" component
-    /// @param _r Signature "r" component
-    /// @param _s Signature "s" component
-    /// @return address
-    function recoverAddress(
-        bytes32 _h,
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s
-    ) private pure returns (address) {
-        bytes memory _prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 _prefixedHash = keccak256(abi.encodePacked(_prefix, _h));
-        return ecrecover(_prefixedHash, _v, _r, _s);
-    }
-
     /// @notice Recover the address of the signer of a message.
     /// @param message Message that was signed
     /// @param signature Signature from either party
@@ -548,11 +534,21 @@ contract ZapitP2PEscrow {
         bytes32 message,
         bytes memory signature
     ) internal pure returns (address) {
-        uint8 v;
         bytes32 r;
         bytes32 s;
+        uint8 v;
 
-        (v, r, s) = splitSignature(signature);
+        assembly {
+            r := mload(add(signature, 32))
+            s := mload(add(signature, 64))
+            v := byte(0, mload(add(signature, 96)))
+        }
+
+        if (v < 27) {
+            v += 27;
+        }
+
+        require(v == 27 || v == 28);
 
         return ecrecover(message, v, r, s);
     }
@@ -563,10 +559,6 @@ contract ZapitP2PEscrow {
             keccak256(
                 abi.encodePacked("\x19Ethereum Signed Message:\n32", hash)
             );
-    }
-
-    function getMessageHash(bytes32 _tradeID) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_tradeID));
     }
 
     function splitSignature(

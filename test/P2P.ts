@@ -254,7 +254,9 @@ describe("ZapitP2PEscrow", function () {
         buyer: buyer.address,
       });
 
-      await p2p.connect(deployer).resolveDispute(TRADE_ID, signature, 0);
+      await p2p
+        .connect(deployer)
+        .resolveDispute(TRADE_ID, signature, seller.address, 0);
 
       let sellerBalance: number | string = (
         await ethers.provider.getBalance(seller.address)

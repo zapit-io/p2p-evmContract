@@ -37,18 +37,9 @@ contract ZapitP2PEscrow {
     +  Instruction types  +
     ***********************/
 
-    // Called when the buyer marks payment as sent. Locks funds in escrow
-    uint8 constant INSTRUCTION_SELLER_CANNOT_CANCEL = 0x01;
     // Buyer cancelling
     uint8 constant INSTRUCTION_BUYER_CANCEL = 0x02;
-    // Seller cancelling
-    uint8 constant INSTRUCTION_SELLER_CANCEL = 0x03;
-    // Seller requesting to cancel. Begins a window for buyer to object
-    uint8 constant INSTRUCTION_SELLER_REQUEST_CANCEL = 0x04;
-    // Seller releasing funds to the buyer
-    uint8 constant INSTRUCTION_RELEASE = 0x05;
-    // Either party permitting the arbitrator to resolve a dispute
-    uint8 constant INSTRUCTION_RESOLVE = 0x06;
+
     // custom order expiration option
     uint32 private ORDER_EXPIRATION = 4 hours;
 

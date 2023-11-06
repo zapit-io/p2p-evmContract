@@ -43,9 +43,6 @@ contract ZapitP2PEscrow {
     // custom order expiration option
     uint32 private ORDER_EXPIRATION = 4 hours;
 
-    // Message to be signed by either of the parties for resolving a dispute
-    bytes8 constant MESSAGE_DISPUTE = "ABCD";
-
     /***********************
     +       Events        +
     ***********************/
@@ -135,50 +132,34 @@ contract ZapitP2PEscrow {
         emit Created(_tradeID);
     }
 
-    /// @notice Called by the arbitrator to resolve a dispute. Requires a signature from either party.
+    /// @notice Called by the favourable party for whom the order has been resolved by the arbitrator
     /// @param _tradeID Escrow "tradeID" parameter
     /// @param _sig Signature from either party
-    /// @param signer Address of the signer
-    /// @param _buyerPercent What % should be distributed to the buyer (this is usually 0 or 100)
-    /// TBD
-    function resolveDispute(
+    function claimDisputedOrder(
         bytes32 _tradeID,
-        bytes memory _sig,
-        address signer,
-        uint8 _buyerPercent
+        bytes memory _sig
     ) external onlyArbitrator {
         Escrow storage _escrow = escrows[_tradeID];
         require(_escrow.exists, "Escrow does not exist");
-        bytes32 messageHash = keccak256(abi.encodePacked(MESSAGE_DISPUTE));
 
+        // concat a message out of the tradeID and the msg.sender
+        bytes32 messageHash = keccak256(abi.encodePacked(_tradeID, msg.sender));
         messageHash = prefixed(messageHash);
         address _signature = recoverSigner(messageHash, _sig);
 
         console.log("Address", _signature);
         console.log("Escrow-seller", _escrow._seller);
-        console.log("Signer", signer);
 
         require(
-            _signature == _escrow._buyer || _signature == _escrow._seller,
-            "Must be buyer or seller"
+            _signature == arbitrator,
+            "Signature must be from the arbitrator"
         );
-
-        require(_buyerPercent <= 100, "_buyerPercent must be 100 or lower");
 
         uint256 _totalFees = (_escrow._value * fees) / 10000;
 
-        feesAvailableForWithdraw += _totalFees;
-
-        delete escrows[_tradeID];
+        // tranfer the funds to the msg.sender
+        transferMinusFees(payable(msg.sender), _escrow._value, _totalFees);
         emit DisputeResolved(_tradeID);
-        if (_buyerPercent == 100)
-            payable(_escrow._buyer).transfer(
-                ((_escrow._value - _totalFees) * _buyerPercent) / 100
-            );
-        if (_buyerPercent == 0)
-            payable(_escrow._seller).transfer(
-                ((_escrow._value - _totalFees) * (100 - _buyerPercent)) / 100
-            );
     }
 
     /// @notice Withdraw fees collected by the contract. Only the owner can call this.
@@ -232,10 +213,13 @@ contract ZapitP2PEscrow {
     function transferMinusFees(
         address payable _to,
         uint256 _value,
-        uint32 _fee
+        uint256 _fee
     ) private {
         uint256 _totalFees = (_fee / 10000) * _value;
-        if (_value - _totalFees > _value) return;
+        require(
+            (_value - _totalFees) > _value,
+            "Value must be higher than fees"
+        );
         // Add fees to the pot for zapit to withdraw (now it's 0)
         feesAvailableForWithdraw += _totalFees;
         payable(_to).transfer(_value);
@@ -254,9 +238,8 @@ contract ZapitP2PEscrow {
         Escrow storage _escrow = escrows[_tradeID];
         bytes32 _tradeHash;
 
-        if (!_escrow.exists) return false;
-
-        if (msg.sender != _escrow._buyer) return false;
+        require(_escrow.exists, "Escrow does not exist");
+        require(msg.sender == _escrow._buyer, "Must be buyer");
 
         delete escrows[_tradeHash];
 

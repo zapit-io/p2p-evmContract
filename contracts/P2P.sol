@@ -16,29 +16,6 @@ pragma solidity ^0.8.18;
 
 import "hardhat/console.sol";
 
-abstract contract Token {
-    function transfer(
-        address _to,
-        uint _value
-    ) public virtual returns (bool success);
-
-    function transferFrom(
-        address _from,
-        address _to,
-        uint _value
-    ) public virtual returns (bool success);
-
-    function virtualapprove(
-        address _spender,
-        uint _value
-    ) public virtual returns (bool success);
-
-    function approve(
-        address spender,
-        uint256 value
-    ) public virtual returns (bool);
-}
-
 /// @title Zapit P2P Escrows
 /// @author Zapit
 contract ZapitP2PEscrow {
@@ -193,13 +170,12 @@ contract ZapitP2PEscrow {
         address signer,
         uint8 _buyerPercent
     ) external onlyArbitrator {
+        Escrow storage _escrow = escrows[_tradeID];
         require(_escrow.exists, "Escrow does not exist");
         bytes32 messageHash = keccak256(abi.encodePacked(MESSAGE_DISPUTE));
 
         messageHash = prefixed(messageHash);
         address _signature = recoverSigner(messageHash, _sig);
-
-        Escrow storage _escrow = escrows[_tradeID];
 
         console.log("Address", _signature);
         console.log("Escrow-seller", _escrow._seller);
@@ -283,44 +259,6 @@ contract ZapitP2PEscrow {
         uint32 _newRequestCancellationMinimumTime
     ) external onlyOwner {
         requestCancellationMinimumTime = _newRequestCancellationMinimumTime;
-    }
-
-    /// @notice Send ERC20 tokens away. This function allows the owner to withdraw stuck ERC20 tokens.
-    /// @param _tokenContract Token contract
-    /// @param _transferTo Recipient
-    /// @param _value Value
-    function transferToken(
-        Token _tokenContract,
-        address _transferTo,
-        uint256 _value
-    ) external onlyOwner {
-        _tokenContract.transfer(_transferTo, _value);
-    }
-
-    /// @notice Send ERC20 tokens away. This function allows the owner to withdraw stuck ERC20 tokens.
-    /// @param _tokenContract Token contract
-    /// @param _transferTo Recipient
-    /// @param _transferFrom Sender
-    /// @param _value Value
-    function transferTokenFrom(
-        Token _tokenContract,
-        address _transferTo,
-        address _transferFrom,
-        uint256 _value
-    ) external onlyOwner {
-        _tokenContract.transferFrom(_transferTo, _transferFrom, _value);
-    }
-
-    /// @notice Send ERC20 tokens away. This function allows the owner to withdraw stuck ERC20 tokens.
-    /// @param _tokenContract Token contract
-    /// @param _spender Spender address
-    /// @param _value Value
-    function approveToken(
-        Token _tokenContract,
-        address _spender,
-        uint256 _value
-    ) external onlyOwner {
-        _tokenContract.approve(_spender, _value);
     }
 
     ///@notice Called buy the buyer to disable seller cancellation option once tha payment has been done

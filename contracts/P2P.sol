@@ -70,16 +70,15 @@ contract ZapitP2PEscrow {
     struct Escrow {
         // So we know the escrow exists
         bool exists;
-        // This is the timestamp in whic hthe seller can cancel the escrow after.
+        // This is the timestamp in whic the seller can cancel the escrow after.
         // It has two special values:
         // 0 : Permanently locked by the buyer (i.e. marked as paid; the seller can never cancel)
         // 1 : The seller can only request to cancel, which will change this value to a timestamp.
         //     This option is avaialble for complex trade terms such as cash-in-person where a
         //     payment window is inappropriate
-        uint32 sellerCanCancelAfter;
-        // Cumulative cost of gas incurred by the relayer. This amount will be refunded to the owner
-        // in the way of fees once the escrow has completed
-        uint128 totalGasFeesSpentByRelayer;
+        uint32 orderExpiration;
+        // storing the timestamp when the escrow was created
+        uint32 createdAt;
         // address of the buyer
         address payable _buyer;
         // address of the seller
@@ -124,33 +123,23 @@ contract ZapitP2PEscrow {
     /// @param _seller The selling party
     /// @param _buyer The buying party
     /// @param _value The amount of the escrow, exclusive of the fee
-    /// @param _paymentWindowInSeconds The time in seconds from escrow creation that the seller can cancel after
     function createEscrow(
         bytes32 _tradeID,
         address _seller,
         address _buyer,
-        uint256 _value,
-        uint32 _paymentWindowInSeconds
+        uint256 _value
     ) external payable {
-        // The trade hash is created by tightly-concatenating and hashing properties of the trade.
-        // This hash becomes the identifier of the escrow, and hence all these variables must be
-        // supplied on future contract calls
-
         // Require that trade does not already exist
         require(!escrows[_tradeID].exists, "Trade already exists");
 
         // Check transaction value against passed _value and make sure is not 0
         require(msg.value == _value && msg.value > 0, "Incorrect ETH sent");
 
-        uint32 _sellerCanCancelAfter = _paymentWindowInSeconds == 0
-            ? 1
-            : uint32(block.timestamp) + _paymentWindowInSeconds;
-
         // Add the escrow to the public mapping
         escrows[_tradeID] = Escrow(
             true,
-            _sellerCanCancelAfter,
-            0,
+            ORDER_EXPIRATION,
+            uint32(block.timestamp),
             payable(_buyer),
             payable(_seller),
             _value
@@ -163,6 +152,7 @@ contract ZapitP2PEscrow {
     /// @param _sig Signature from either party
     /// @param signer Address of the signer
     /// @param _buyerPercent What % should be distributed to the buyer (this is usually 0 or 100)
+    /// TBD
     function resolveDispute(
         bytes32 _tradeID,
         bytes memory _sig,
@@ -203,27 +193,6 @@ contract ZapitP2PEscrow {
             );
     }
 
-    /// @notice Disable the seller from cancelling (i.e. "mark as paid"). Direct call option.
-    /// @param _tradeID Escrow "tradeID" parameter
-    /// @return bool
-    function disableSellerCancel(bytes32 _tradeID) external returns (bool) {
-        return doDisableSellerCancel(_tradeID);
-    }
-
-    /// @notice Cancel the escrow as a seller. Direct call option.
-    /// @param _tradeID Escrow "tradeID" parameter
-    /// @return bool
-    function sellerCancel(bytes32 _tradeID) external returns (bool) {
-        return doSellerCancel(_tradeID);
-    }
-
-    /// @notice Request to cancel as a seller. Direct call option.
-    /// @param _tradeID Escrow "tradeID" parameter
-    /// @return bool
-    function sellerRequestCancel(bytes32 _tradeID) external returns (bool) {
-        return doSellerRequestCancel(_tradeID);
-    }
-
     /// @notice Withdraw fees collected by the contract. Only the owner can call this.
     /// @param _to Address to withdraw fees in to
     /// @param _amount Amount to withdraw
@@ -252,22 +221,6 @@ contract ZapitP2PEscrow {
         owner = _newOwner;
     }
 
-    ///@notice Called buy the buyer to disable seller cancellation option once tha payment has been done
-    ///@param _tradeID Escrow "tradeID" parameter
-    ///@param _instructionByte Instruction byte
-    ///@return bool
-
-    function sellerCannotCancel(
-        bytes32 _tradeID,
-        uint8 _instructionByte
-    )
-        external
-        matchInstruction(_instructionByte, INSTRUCTION_SELLER_CANNOT_CANCEL)
-        returns (bool)
-    {
-        return doDisableSellerCancel(_tradeID);
-    }
-
     ///@notice Called buy the buyer to cancel the escrow and returning the funds to the seller
     ///@param _tradeID Escrow "tradeID" parameter
     ///@param _instructionByte Instruction byte
@@ -282,53 +235,6 @@ contract ZapitP2PEscrow {
         returns (bool)
     {
         return doBuyerCancel(_tradeID);
-    }
-
-    ///@notice Called buy the seller to release the escrow
-    ///@param _tradeID Escrow "tradeID" parameter
-    ///@param _instructionByte Instruction byte
-    ///@return bool
-
-    function releaseEscrow(
-        bytes32 _tradeID,
-        uint8 _instructionByte
-    )
-        external
-        matchInstruction(_instructionByte, INSTRUCTION_RELEASE)
-        returns (bool)
-    {
-        return doRelease(_tradeID);
-    }
-
-    ///@notice Called buy the seller to cancel the escrow
-    ///@param _tradeID Escrow "tradeID" parameter
-    ///@param _instructionByte Instruction byte
-    ///@return bool
-
-    function sellerCancelation(
-        bytes32 _tradeID,
-        uint8 _instructionByte
-    )
-        external
-        matchInstruction(_instructionByte, INSTRUCTION_SELLER_CANCEL)
-        returns (bool)
-    {
-        return doSellerCancel(_tradeID);
-    }
-
-    ///@notice Called buy the seller to request for cancelling an escrow
-    ///@param _tradeID Escrow "tradeID" parameter
-    ///@param _instructionByte Instruction byte
-    ///@return bool
-    function sellerRequestCancel(
-        bytes32 _tradeID,
-        uint8 _instructionByte
-    )
-        external
-        matchInstruction(_instructionByte, INSTRUCTION_SELLER_REQUEST_CANCEL)
-        returns (bool)
-    {
-        return doSellerRequestCancel(_tradeID);
     }
 
     /// @notice Transfer the value of an escrow, minus the fees
@@ -347,47 +253,10 @@ contract ZapitP2PEscrow {
         payable(_to).transfer(_value);
     }
 
-    /// @notice Release escrow to the buyer. This completes it and removes it from the mapping.
-    /// @param _tradeID Escrow "tradeID" parameter
-    /// @return bool
-    function doRelease(bytes32 _tradeID) private returns (bool) {
-        Escrow storage _escrow = escrows[_tradeID];
-        if (!_escrow.exists) return false;
-
-        delete escrows[_tradeID];
-
-        emit Released(_tradeID);
-        transferMinusFees(
-            _escrow._buyer,
-            _escrow._value,
-            fees // fees to be paid to zapit
-        );
-        return true;
-    }
-
     /// @notice Change the order expiration time
     /// @param _newExpiration New expiration time
     function changeOrderExpiration(uint32 _newExpiration) external onlyOwner {
         ORDER_EXPIRATION = _newExpiration;
-    }
-
-    /// @notice Prevents the seller from cancelling an escrow. Used to "mark as paid" by the buyer.
-    /// @param _tradeID Escrow "tradeID" parameter
-    ///
-    /// @return bool
-    function doDisableSellerCancel(bytes32 _tradeID) private returns (bool) {
-        Escrow storage _escrow = escrows[_tradeID];
-
-        if (!_escrow.exists) return false;
-
-        if (msg.sender != _escrow._buyer) return false;
-
-        if (_escrow.sellerCanCancelAfter == 0) return false;
-
-        _escrow.sellerCanCancelAfter = 0;
-
-        emit SellerCancelDisabled(_tradeID);
-        return true;
     }
 
     /// @notice Cancels the trade and returns the ETH to the seller. Can only be called the buyer.
@@ -405,54 +274,6 @@ contract ZapitP2PEscrow {
 
         emit CancelledByBuyer(_tradeID);
         transferMinusFees(_escrow._seller, _escrow._value, 0);
-        return true;
-    }
-
-    /// @notice Returns the ETH in escrow to the seller. Called by the seller. Sometimes unavailable.
-    /// @param _tradeID Escrow "tradeID" parameter
-    /// @return bool
-    function doSellerCancel(bytes32 _tradeID) private returns (bool) {
-        Escrow storage _escrow = escrows[_tradeID];
-
-        if (!_escrow.exists) revert("Escrow does not exist");
-
-        if (msg.sender != _escrow._seller) {
-            return false;
-        }
-
-        if (
-            _escrow.sellerCanCancelAfter <= 1 ||
-            _escrow.sellerCanCancelAfter > block.timestamp
-        ) {
-            return false;
-        }
-        if (_escrow.sellerCanCancelAfter + 12 hours > block.timestamp) {
-            return false;
-        }
-        delete escrows[_tradeID];
-        emit CancelledBySeller(_tradeID);
-        transferMinusFees(_escrow._seller, _escrow._value, 0);
-        return true;
-    }
-
-    /// @notice Request to cancel. Used if the buyer is unresponsive. Begins a countdown timer.
-    /// @param _tradeID Escrow "tradeID" parameter
-    /// @return bool
-    function doSellerRequestCancel(bytes32 _tradeID) private returns (bool) {
-        // Called on unlimited payment window trades where the buyer is not responding
-        Escrow storage _escrow = escrows[_tradeID];
-        if (!_escrow.exists) {
-            return false;
-        }
-
-        if (msg.sender != _escrow._seller) return false;
-
-        if (_escrow.sellerCanCancelAfter != 1) {
-            return false;
-        }
-
-        emit SellerRequestedCancel(_tradeID);
-
         return true;
     }
 

@@ -51,9 +51,6 @@ contract ZapitP2PEscrow {
     ***********************/
 
     event Created(bytes32 indexed _tradeHash);
-    event SellerCancelDisabled(bytes32 indexed _tradeHash);
-    event SellerRequestedCancel(bytes32 indexed _tradeHash);
-    event CancelledBySeller(bytes32 indexed _tradeHash);
     event CancelledByBuyer(bytes32 indexed _tradeHash);
     event Released(bytes32 indexed _tradeHash);
     event DisputeResolved(bytes32 indexed _tradeHash);

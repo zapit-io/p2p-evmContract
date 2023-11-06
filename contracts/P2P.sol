@@ -30,8 +30,6 @@ contract ZapitP2PEscrow {
 
     uint8 public fees; // fees for zapit
 
-    uint32 public requestCancellationMinimumTime;
-
     // Cumulative balance of collected fees
     uint256 public feesAvailableForWithdraw;
 
@@ -51,6 +49,8 @@ contract ZapitP2PEscrow {
     uint8 constant INSTRUCTION_RELEASE = 0x05;
     // Either party permitting the arbitrator to resolve a dispute
     uint8 constant INSTRUCTION_RESOLVE = 0x06;
+    // custom order expiration option
+    uint32 private ORDER_EXPIRATION = 4 hours;
 
     // Message to be signed by either of the parties for resolving a dispute
     bytes8 constant MESSAGE_DISPUTE = "ABCD";
@@ -117,7 +117,6 @@ contract ZapitP2PEscrow {
         owner = msg.sender;
         arbitrator = msg.sender;
         fees = _fees; // stored in terms of basis-points
-        requestCancellationMinimumTime = 0 seconds;
     }
 
     /// @notice Create and fund a new escrow.
@@ -253,14 +252,6 @@ contract ZapitP2PEscrow {
         owner = _newOwner;
     }
 
-    /// @notice Change the requestCancellationMinimumTime. Only the owner can call this.
-    /// @param _newRequestCancellationMinimumTime Replacement
-    function setRequestCancellationMinimumTime(
-        uint32 _newRequestCancellationMinimumTime
-    ) external onlyOwner {
-        requestCancellationMinimumTime = _newRequestCancellationMinimumTime;
-    }
-
     ///@notice Called buy the buyer to disable seller cancellation option once tha payment has been done
     ///@param _tradeID Escrow "tradeID" parameter
     ///@param _instructionByte Instruction byte
@@ -374,6 +365,12 @@ contract ZapitP2PEscrow {
         return true;
     }
 
+    /// @notice Change the order expiration time
+    /// @param _newExpiration New expiration time
+    function changeOrderExpiration(uint32 _newExpiration) external onlyOwner {
+        ORDER_EXPIRATION = _newExpiration;
+    }
+
     /// @notice Prevents the seller from cancelling an escrow. Used to "mark as paid" by the buyer.
     /// @param _tradeID Escrow "tradeID" parameter
     ///
@@ -453,9 +450,6 @@ contract ZapitP2PEscrow {
         if (_escrow.sellerCanCancelAfter != 1) {
             return false;
         }
-        escrows[_tradeID].sellerCanCancelAfter =
-            uint32(block.timestamp) +
-            requestCancellationMinimumTime;
 
         emit SellerRequestedCancel(_tradeID);
 

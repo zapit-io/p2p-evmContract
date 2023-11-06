@@ -193,6 +193,7 @@ contract ZapitP2PEscrow {
         address signer,
         uint8 _buyerPercent
     ) external onlyArbitrator {
+        require(_escrow.exists, "Escrow does not exist");
         bytes32 messageHash = keccak256(abi.encodePacked(MESSAGE_DISPUTE));
 
         messageHash = prefixed(messageHash);
@@ -203,8 +204,6 @@ contract ZapitP2PEscrow {
         console.log("Address", _signature);
         console.log("Escrow-seller", _escrow._seller);
         console.log("Signer", signer);
-
-        require(_escrow.exists, "Escrow does not exist");
 
         require(
             _signature == _escrow._buyer || _signature == _escrow._seller,

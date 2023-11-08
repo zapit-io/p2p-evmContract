@@ -103,8 +103,9 @@ describe("ZapitP2PEscrow", function () {
       // expect(escrow._value).to.be.equal(ESCROW_VALUE.toString());
     });
     it("Emits and event when an escrow is created", async function () {
-      const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller, PAYMENT_WINDOW } =
-        await loadFixture(deployP2PEscrow);
+      const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller } = await loadFixture(
+        deployP2PEscrow
+      );
 
       await expect(
         p2p.createEscrow(

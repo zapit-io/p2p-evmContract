@@ -135,11 +135,9 @@ contract ZapitP2PEscrow {
     /// @notice Called by the favourable party for whom the order has been resolved by the arbitrator
     /// @param _tradeID Escrow "tradeID" parameter
     /// @param _sig Signature from either party
-    function claimDisputedOrder(
-        bytes32 _tradeID,
-        bytes memory _sig
-    ) external onlyArbitrator {
+    function claimDisputedOrder(bytes32 _tradeID, bytes memory _sig) external {
         Escrow storage _escrow = escrows[_tradeID];
+        console.log("Claim-dispute", _escrow.exists);
         require(_escrow.exists, "Escrow does not exist");
 
         // concat a message out of the tradeID and the msg.sender
@@ -157,6 +155,7 @@ contract ZapitP2PEscrow {
 
         // tranfer the funds to the msg.sender
         transferMinusFees(payable(msg.sender), _escrow._value, fees);
+        _escrow.exists = false;
         emit DisputeClaimed(_tradeID);
     }
 

@@ -173,14 +173,30 @@ describe("ZapitP2PEscrow", function () {
         ethers.formatEther(await provider.getBalance(seller.address))
       );
 
-      console.log({
-        prevSellerBalance,
-        newSellerBalance,
-      });
-
       await expect(txData).to.emit(p2p, "CancelledByBuyer").withArgs(TRADE_ID);
 
       expect(newSellerBalance).to.be.greaterThan(prevSellerBalance);
+    });
+  });
+
+  describe("Claiming the amounts from a disputed order", function () {
+    it("Revert if the to be request escrow-id does not exist", async function () {
+      const { p2p, buyer, deployer, TRADE_ID } = await loadFixture(
+        createP2PEscrow
+      );
+
+      const arbitratorSignature = await deployer.signMessage(
+        TRADE_ID + buyer.address
+      );
+
+      await expect(
+        p2p
+          .connect(buyer)
+          .claimDisputedOrder(
+            ethers.encodeBytes32String("123"),
+            arbitratorSignature
+          )
+      ).revertedWith("Escrow does not exist");
     });
   });
 });

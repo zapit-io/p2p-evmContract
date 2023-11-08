@@ -213,13 +213,10 @@ contract ZapitP2PEscrow {
         uint256 _value,
         uint256 _fee
     ) private {
-        uint256 _totalFees = (_fee / 10000) * _value;
-        console.log("fee", _totalFees);
-        console.log("value", _value);
+        uint256 _totalFees = (_fee * _value) / 100;
         require(_totalFees < _value, "Fees must be less than value");
-        // Add fees to the pot for zapit to withdraw (now it's 0)
         feesAvailableForWithdraw += _totalFees;
-        payable(_to).transfer(_value);
+        payable(_to).transfer(_value - _totalFees);
     }
 
     /// @notice Change the order expiration time

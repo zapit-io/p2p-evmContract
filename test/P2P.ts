@@ -11,7 +11,7 @@ describe("ZapitP2PEscrow", function () {
   // and reset Hardhat Network to that snapshot in every test.
   async function deployP2PEscrow() {
     // fees in terms of basis points
-    const FEES = 100; // 1%
+    const FEES = 1; // 1%
     const TRADE_ID = ethers.encodeBytes32String("507f1f77bcf86cd799439011");
     const PAYMENT_WINDOW = 600; // 10 minutes
     const ESCROW_VALUE = ethers.parseEther("1");
@@ -161,9 +161,26 @@ describe("ZapitP2PEscrow", function () {
         createP2PEscrow
       );
 
-      await expect(p2p.connect(buyer).buyerCancel(TRADE_ID, 0x02))
-        .to.emit(p2p, "CancelledByBuyer")
-        .withArgs(TRADE_ID);
+      const provider = ethers.provider;
+
+      const prevSellerBalance = parseFloat(
+        ethers.formatEther(await provider.getBalance(seller.address))
+      );
+
+      const txData = await p2p.connect(buyer).buyerCancel(TRADE_ID, 0x02);
+
+      const newSellerBalance = parseFloat(
+        ethers.formatEther(await provider.getBalance(seller.address))
+      );
+
+      console.log({
+        prevSellerBalance,
+        newSellerBalance,
+      });
+
+      await expect(txData).to.emit(p2p, "CancelledByBuyer").withArgs(TRADE_ID);
+
+      await expect(newSellerBalance).to.be.greaterThan(prevSellerBalance);
     });
   });
 });

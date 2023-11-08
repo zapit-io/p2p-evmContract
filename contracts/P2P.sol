@@ -216,7 +216,7 @@ contract ZapitP2PEscrow {
         uint256 _totalFees = (_fee / 10000) * _value;
         console.log("fee", _totalFees);
         console.log("value", _value);
-        require(_totalFees > _value, "Fees must be less than value");
+        require(_totalFees < _value, "Fees must be less than value");
         // Add fees to the pot for zapit to withdraw (now it's 0)
         feesAvailableForWithdraw += _totalFees;
         payable(_to).transfer(_value);

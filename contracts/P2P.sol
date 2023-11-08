@@ -244,7 +244,7 @@ contract ZapitP2PEscrow {
         delete escrows[_tradeHash];
 
         emit CancelledByBuyer(_tradeID);
-        transferMinusFees(_escrow._seller, _escrow._value, 0);
+        transferMinusFees(_escrow._seller, _escrow._value, 100);
         return true;
     }
 

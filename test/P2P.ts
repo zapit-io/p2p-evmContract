@@ -2,7 +2,6 @@ import {
   time,
   loadFixture,
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
@@ -54,11 +53,7 @@ describe("ZapitP2PEscrow", function () {
       TRADE_ID,
       seller.address,
       buyer.address,
-      ESCROW_VALUE,
-      PAYMENT_WINDOW,
-      {
-        value: ESCROW_VALUE,
-      }
+      ESCROW_VALUE
     );
 
     return {
@@ -79,17 +74,14 @@ describe("ZapitP2PEscrow", function () {
     it("Should set the right initial data", async function () {
       const { p2p, deployer, FEES } = await loadFixture(deployP2PEscrow);
 
-      const [owner, arbitrator, requestCancellationMinimumTime, fees] =
-        await Promise.all([
-          p2p.owner(),
-          p2p.arbitrator(),
-          p2p.requestCancellationMinimumTime(),
-          p2p.fees(),
-        ]);
+      const [owner, arbitrator, fees] = await Promise.all([
+        p2p.owner(),
+        p2p.arbitrator(),
+        p2p.fees(),
+      ]);
 
       expect(owner).to.be.equal(deployer.address);
       expect(arbitrator).to.be.equal(deployer.address);
-      expect(requestCancellationMinimumTime).to.be.equal(0);
       expect(fees).to.be.equal(FEES);
     });
   });
@@ -105,25 +97,13 @@ describe("ZapitP2PEscrow", function () {
       expect(escrow._seller).to.be.equal(seller.address);
       expect(escrow._buyer).to.be.equal(buyer.address);
       expect(escrow._value).to.be.equal(ESCROW_VALUE.toString());
-      expect(escrow.sellerCanCancelAfter).to.be.lessThan(
-        currentBlockTimestamp + PAYMENT_WINDOW
-      );
     });
     it("Emits and event when an escrow is created", async function () {
       const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller, PAYMENT_WINDOW } =
         await loadFixture(deployP2PEscrow);
 
       await expect(
-        p2p.createEscrow(
-          TRADE_ID,
-          seller.address,
-          buyer.address,
-          ESCROW_VALUE,
-          PAYMENT_WINDOW,
-          {
-            value: ESCROW_VALUE,
-          }
-        )
+        p2p.createEscrow(TRADE_ID, seller.address, buyer.address, ESCROW_VALUE)
       )
         .to.emit(p2p, "Created")
         .withArgs(TRADE_ID);
@@ -133,16 +113,7 @@ describe("ZapitP2PEscrow", function () {
         await loadFixture(deployP2PEscrow);
 
       await expect(
-        p2p.createEscrow(
-          TRADE_ID,
-          seller.address,
-          buyer.address,
-          ESCROW_VALUE,
-          PAYMENT_WINDOW,
-          {
-            value: ethers.parseEther("0.01"),
-          }
-        )
+        p2p.createEscrow(TRADE_ID, seller.address, buyer.address, ESCROW_VALUE)
       ).to.be.revertedWith("Incorrect ETH sent");
     });
     it("Try to create an already existing escrow", async function () {
@@ -150,123 +121,8 @@ describe("ZapitP2PEscrow", function () {
         await loadFixture(createP2PEscrow);
 
       await expect(
-        p2p.createEscrow(
-          TRADE_ID,
-          seller.address,
-          buyer.address,
-          ESCROW_VALUE,
-          PAYMENT_WINDOW,
-          {
-            value: ESCROW_VALUE,
-          }
-        )
+        p2p.createEscrow(TRADE_ID, seller.address, buyer.address, ESCROW_VALUE)
       ).to.be.revertedWith("Trade already exists");
-    });
-  });
-
-  describe("Testing the cancelling trade of escrow", function () {
-    it("Set the seller cannot cancel after payment has been done", async function () {
-      const { p2p, TRADE_ID, buyer } = await loadFixture(createP2PEscrow);
-
-      await p2p.connect(buyer).sellerCannotCancel(TRADE_ID, 0x01);
-
-      const escrow = await p2p.escrows(TRADE_ID);
-      expect(escrow.sellerCanCancelAfter).to.be.equal(0);
-    });
-
-    it("Test reverts if the seller cancel has been disabled", async function () {
-      const { p2p, TRADE_ID, seller, buyer } = await loadFixture(
-        createP2PEscrow
-      );
-
-      await p2p.connect(buyer).sellerCannotCancel(TRADE_ID, 0x01);
-
-      expect(
-        await p2p.connect(seller).sellerCancelation(TRADE_ID, 0x03)
-      ).to.not.emit(p2p, "CancelledBySeller");
-    });
-
-    it("Test to check the event when the seller is able to cancel escrow", async function () {
-      const { p2p, TRADE_ID, seller } = await loadFixture(createP2PEscrow);
-
-      expect(
-        await p2p.connect(seller).sellerCancelation(TRADE_ID, 0x03)
-      ).to.not.emit(p2p, "CancelledBySeller");
-    });
-
-    it("Test to check the event when the buyer is able to cancel escrow", async function () {
-      const { p2p, TRADE_ID, buyer } = await loadFixture(createP2PEscrow);
-
-      expect(await p2p.connect(buyer).buyerCancel(TRADE_ID, 0x02)).to.emit(
-        p2p,
-        "CancelledByBuyer"
-      );
-    });
-    it("Test to check the seller received the balance from the escrow", async function () {
-      const { p2p, TRADE_ID, seller, ESCROW_VALUE, buyer } = await loadFixture(
-        createP2PEscrow
-      );
-
-      let prevSellerBalance: number | string = (
-        await ethers.provider.getBalance(seller.address)
-      ).toString();
-
-      prevSellerBalance = parseFloat(ethers.formatEther(prevSellerBalance));
-
-      await p2p.connect(buyer).buyerCancel(TRADE_ID, 0x02);
-
-      let sellerBalance: number | string = (
-        await ethers.provider.getBalance(seller.address)
-      ).toString();
-
-      sellerBalance = parseFloat(ethers.formatEther(sellerBalance));
-
-      console.log({
-        prevSellerBalance,
-        sellerBalance,
-      });
-
-      expect(sellerBalance).to.be.equal(
-        prevSellerBalance + parseFloat(ethers.formatEther(ESCROW_VALUE))
-      );
-    });
-  });
-
-  describe("Testing the dispute of escrow", function () {
-    it("Test to check when the escrow amount is sent to the seller", async function () {
-      const {
-        p2p,
-        TRADE_ID,
-        seller,
-        buyer,
-        ESCROW_VALUE,
-        MESSAGE_DISPUTE,
-        deployer,
-      } = await loadFixture(createP2PEscrow);
-
-      // create a signature with trade-id and 0x06 by the buyer
-      const signature = await seller.signMessage(MESSAGE_DISPUTE);
-
-      console.log({
-        seller: seller.address,
-        signature,
-        deployer: deployer.address,
-        buyer: buyer.address,
-      });
-
-      await p2p
-        .connect(deployer)
-        .resolveDispute(TRADE_ID, signature, seller.address, 0);
-
-      let sellerBalance: number | string = (
-        await ethers.provider.getBalance(seller.address)
-      ).toString();
-
-      sellerBalance = parseFloat(ethers.formatEther(sellerBalance));
-
-      expect(sellerBalance).to.be.equal(
-        parseFloat(ethers.formatEther(ESCROW_VALUE))
-      );
     });
   });
 });

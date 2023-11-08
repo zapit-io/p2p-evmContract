@@ -198,5 +198,18 @@ describe("ZapitP2PEscrow", function () {
           )
       ).revertedWith("Escrow does not exist");
     });
+    it("Revert if the signature was not signed by the arbitrator", async function () {
+      const { p2p, buyer, deployer, TRADE_ID } = await loadFixture(
+        createP2PEscrow
+      );
+
+      const arbitratorSignature = await buyer.signMessage(
+        TRADE_ID + buyer.address
+      );
+
+      await expect(
+        p2p.connect(buyer).claimDisputedOrder(TRADE_ID, arbitratorSignature)
+      ).revertedWith("Signature must be from the arbitrator");
+    });
   });
 });

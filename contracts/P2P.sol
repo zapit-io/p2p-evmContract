@@ -50,7 +50,7 @@ contract ZapitP2PEscrow {
     event Created(bytes32 indexed _tradeHash);
     event CancelledByBuyer(bytes32 indexed _tradeHash);
     event Released(bytes32 indexed _tradeHash);
-    event DisputeResolved(bytes32 indexed _tradeHash);
+    event DisputeClaimed(bytes32 indexed _tradeHash);
 
     struct Escrow {
         // So we know the escrow exists
@@ -157,7 +157,7 @@ contract ZapitP2PEscrow {
 
         // tranfer the funds to the msg.sender
         transferMinusFees(payable(msg.sender), _escrow._value, fees);
-        emit DisputeResolved(_tradeID);
+        emit DisputeClaimed(_tradeID);
     }
 
     /// @notice Withdraw fees collected by the contract. Only the owner can call this.

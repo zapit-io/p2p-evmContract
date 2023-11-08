@@ -145,9 +145,6 @@ contract ZapitP2PEscrow {
         messageHash = prefixed(messageHash);
         address _signature = recoverSigner(messageHash, _sig);
 
-        console.log("Address", _signature);
-        console.log("Escrow-seller", _escrow._seller);
-
         require(
             _signature == arbitrator,
             "Signature must be from the arbitrator"

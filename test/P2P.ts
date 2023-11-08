@@ -59,6 +59,8 @@ describe("ZapitP2PEscrow", function () {
       }
     );
 
+    await p2p.connect(deployer).setArbitrator(arbitrator.address);
+
     return {
       p2p,
       deployer,
@@ -210,6 +212,21 @@ describe("ZapitP2PEscrow", function () {
       await expect(
         p2p.connect(buyer).claimDisputedOrder(TRADE_ID, arbitratorSignature)
       ).revertedWith("Signature must be from the arbitrator");
+    });
+    it("Claiming the disputed order is working", async function () {
+      const { p2p, buyer, arbitrator, TRADE_ID } = await loadFixture(
+        createP2PEscrow
+      );
+
+      const arbitratorSignature = await arbitrator.signMessage(
+        TRADE_ID + buyer.address
+      );
+
+      await expect(
+        p2p.connect(buyer).claimDisputedOrder(TRADE_ID, arbitratorSignature)
+      )
+        .to.emit(p2p, "ClaimedDisputedOrder")
+        .withArgs(TRADE_ID);
     });
   });
 });

@@ -155,10 +155,8 @@ contract ZapitP2PEscrow {
             "Signature must be from the arbitrator"
         );
 
-        uint256 _totalFees = (_escrow._value * fees) / 10000;
-
         // tranfer the funds to the msg.sender
-        transferMinusFees(payable(msg.sender), _escrow._value, _totalFees);
+        transferMinusFees(payable(msg.sender), _escrow._value, fees);
         emit DisputeResolved(_tradeID);
     }
 
@@ -216,10 +214,9 @@ contract ZapitP2PEscrow {
         uint256 _fee
     ) private {
         uint256 _totalFees = (_fee / 10000) * _value;
-        require(
-            (_value - _totalFees) > _value,
-            "Value must be higher than fees"
-        );
+        console.log("fee", _totalFees);
+        console.log("value", _value);
+        require(_totalFees > _value, "Fees must be less than value");
         // Add fees to the pot for zapit to withdraw (now it's 0)
         feesAvailableForWithdraw += _totalFees;
         payable(_to).transfer(_value);
@@ -236,15 +233,14 @@ contract ZapitP2PEscrow {
     /// @return bool
     function doBuyerCancel(bytes32 _tradeID) private returns (bool) {
         Escrow storage _escrow = escrows[_tradeID];
-        bytes32 _tradeHash;
+
+        console.log("Escrow", _escrow.exists);
 
         require(_escrow.exists, "Escrow does not exist");
         require(msg.sender == _escrow._buyer, "Must be buyer");
 
-        delete escrows[_tradeHash];
-
         emit CancelledByBuyer(_tradeID);
-        transferMinusFees(_escrow._seller, _escrow._value, 100);
+        transferMinusFees(_escrow._seller, _escrow._value, fees);
         return true;
     }
 

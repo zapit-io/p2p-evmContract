@@ -180,7 +180,7 @@ describe("ZapitP2PEscrow", function () {
 
       await expect(txData).to.emit(p2p, "CancelledByBuyer").withArgs(TRADE_ID);
 
-      await expect(newSellerBalance).to.be.greaterThan(prevSellerBalance);
+      expect(newSellerBalance).to.be.greaterThan(prevSellerBalance);
     });
   });
 });

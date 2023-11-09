@@ -11,7 +11,7 @@ describe("ZapitP2PEscrow", function () {
   // and reset Hardhat Network to that snapshot in every test.
   async function deployP2PEscrow() {
     // fees in terms of basis points
-    const FEES = 1; // 1%
+    const FEES = 100; // 1%
     const TRADE_ID = ethers.encodeBytes32String("507f1f77bcf86cd799439011");
     const PAYMENT_WINDOW = 600; // 10 minutes
     const ESCROW_VALUE = ethers.parseEther("1");
@@ -77,13 +77,17 @@ describe("ZapitP2PEscrow", function () {
 
   describe("Deployment", function () {
     it("Should set the right initial data", async function () {
-      const { p2p, deployer, FEES } = await loadFixture(deployP2PEscrow);
+      const { p2p, deployer, FEES, TRADE_ID } = await loadFixture(
+        deployP2PEscrow
+      );
 
       const [owner, arbitrator, fees] = await Promise.all([
         p2p.owner(),
         p2p.arbitrator(),
         p2p.fees(),
       ]);
+
+      console.log(TRADE_ID);
 
       expect(owner).to.be.equal(deployer.address);
       expect(arbitrator).to.be.equal(deployer.address);
@@ -99,7 +103,7 @@ describe("ZapitP2PEscrow", function () {
       await time.increase(1000);
 
       const escrow = await p2p.escrows(TRADE_ID);
-      console.log(ESCROW_VALUE == escrow._value);
+      console.log(ESCROW_VALUE);
       expect(escrow._seller).to.be.equal(seller.address);
       expect(escrow._buyer).to.be.equal(buyer.address);
       // expect(escrow._value).to.be.equal(ESCROW_VALUE.toString());

@@ -100,6 +100,7 @@ contract ZapitP2PEscrow {
     constructor(uint8 _fees) {
         owner = msg.sender;
         arbitrator = msg.sender;
+        require(_fees < 10000, "Fees must be less than 10000");
         fees = _fees; // stored in terms of basis-points
     }
 
@@ -209,8 +210,7 @@ contract ZapitP2PEscrow {
         uint256 _value,
         uint256 _fee
     ) private {
-        uint256 _totalFees = (_fee * _value) / 100;
-        require(_totalFees < _value, "Fees must be less than value");
+        uint256 _totalFees = (_fee * _value) / 10000;
         feesAvailableForWithdraw += _totalFees;
         payable(_to).transfer(_value - _totalFees);
     }
@@ -235,6 +235,13 @@ contract ZapitP2PEscrow {
         emit CancelledByBuyer(_tradeID);
         transferMinusFees(_escrow._seller, _escrow._value, fees);
         return true;
+    }
+
+    /// @notice Setting the fees of the contract
+    /// @param _fees Fees in basis-points
+    function setFees(uint8 _fees) public onlyOwner {
+        require(_fees < 10000, "Fees must be less than 10000");
+        fees = _fees; // stored in terms of basis-points
     }
 
     /// @notice Recover the address of the signer of a message.

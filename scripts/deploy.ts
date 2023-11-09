@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const p2pEscrow = await ethers.deployContract("ZapitP2PEscrow", [1]);
+  const p2pEscrow = await ethers.deployContract("ZapitP2PEscrow", [100]);
   await p2pEscrow.waitForDeployment();
 
   // verify contract on polygonscan on mumbai

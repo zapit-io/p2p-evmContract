@@ -28,7 +28,7 @@ contract ZapitP2PEscrow {
     // Address of the owner (who can withdraw collected fees)
     address public owner;
 
-    uint8 public fees; // fees for zapit
+    uint16 public fees; // fees for zapit
 
     // Cumulative balance of collected fees
     uint256 public feesAvailableForWithdraw;
@@ -97,7 +97,7 @@ contract ZapitP2PEscrow {
     }
 
     /// @notice Initialize the contract.
-    constructor(uint8 _fees) {
+    constructor(uint16 _fees) {
         owner = msg.sender;
         arbitrator = msg.sender;
         require(_fees < 10000, "Fees must be less than 10000");

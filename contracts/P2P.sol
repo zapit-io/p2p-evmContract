@@ -168,11 +168,13 @@ contract ZapitP2PEscrow {
         require(_escrow.exists, "Escrow does not exist");
 
         // concat a message out of the tradeID and the msg.sender
-        // bytes32 messageHash = keccak256(abi.encodePacked(_tradeID, msg.sender));
-        address _address = ECDSA.recover(_hash, _sig);
+        bytes32 messageHash = keccak256(abi.encode(_tradeID, msg.sender));
+        // console.logBytes32(messageHash);
+        console.logBytes32(_tradeID);
+        address _address = ECDSA.recover(messageHash, _sig);
         // address _signature = recoverSigner(messageHash, _sig);
 
-        console.log("Signature", _address);
+        console.log("Address", _address);
         console.log("Seller", _escrow._seller);
 
         require(

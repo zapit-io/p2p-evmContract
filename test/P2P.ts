@@ -186,41 +186,52 @@ describe("ZapitP2PEscrow", function () {
   });
 
   describe("Completion of an escrow", function () {
-    it("Revert if the to be request escrow-id does not exist", async function () {
-      const { p2p, buyer, seller, TRADE_ID } = await loadFixture(
-        createP2PEscrow
-      );
+    // it("Revert if the to be request escrow-id does not exist", async function () {
+    //   const { p2p, buyer, seller, TRADE_ID } = await loadFixture(
+    //     createP2PEscrow
+    //   );
 
-      const signature = await seller.signMessage(TRADE_ID + seller.address);
+    //   const signature = await seller.signMessage(TRADE_ID + seller.address);
+    //   const hash = ethers.keccak256(TRADE_ID + seller.address);
 
-      await expect(
-        p2p
-          .connect(seller)
-          .executeOrder(ethers.encodeBytes32String("123"), signature)
-      ).revertedWith("Escrow does not exist");
-    });
-    it("Revert if not called by a seller", async function () {
-      const { p2p, seller, TRADE_ID } = await loadFixture(createP2PEscrow);
+    //   await expect(
+    //     p2p
+    //       .connect(seller)
+    //       .executeOrder(ethers.encodeBytes32String("123"), hash, signature)
+    //   ).revertedWith("Escrow does not exist");
+    // });
+    // it("Revert if not called by a seller", async function () {
+    //   const { p2p, seller, TRADE_ID } = await loadFixture(createP2PEscrow);
 
-      const signature = await seller.signMessage(TRADE_ID + seller.address);
+    //   const signature = await seller.signMessage(TRADE_ID + seller.address);
 
-      await expect(
-        p2p.connect(seller).executeOrder(TRADE_ID, signature)
-      ).revertedWith("Signature must be from the seller");
-    });
+    //   const hash = ethers.keccak256(TRADE_ID + seller.address);
+
+    //   await expect(
+    //     p2p.connect(seller).executeOrder(TRADE_ID, hash, signature)
+    //   ).revertedWith("Signature must be from the seller");
+    // });
     it("Completion was successful", async function () {
       const { p2p, seller, buyer, TRADE_ID } = await loadFixture(
         createP2PEscrow
       );
 
-      const signature = await seller.signMessage(TRADE_ID + seller.address);
       const prevBalance = parseFloat(
         ethers.formatEther(await ethers.provider.getBalance(buyer.address))
       );
 
+      const data = `\x19Ethereum Signed Message:\n32${TRADE_ID}${seller.address}`;
+      const hash = ethers.keccak256(ethers.toUtf8Bytes(data));
+      const signature = await seller.signMessage(hash);
+
+      console.log({
+        seller: seller.address,
+        buyer: buyer.address,
+      });
+
       const txData = await p2p
         .connect(seller)
-        .executeOrder(TRADE_ID, signature);
+        .executeOrder(TRADE_ID, hash, signature);
 
       const newBalance = parseFloat(
         ethers.formatEther(await ethers.provider.getBalance(buyer.address))

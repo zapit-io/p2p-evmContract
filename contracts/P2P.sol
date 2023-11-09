@@ -15,6 +15,7 @@
 pragma solidity ^0.8.18;
 
 import "hardhat/console.sol";
+import "./lib/ECDSA.sol";
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
@@ -155,19 +156,27 @@ contract ZapitP2PEscrow {
 
     /// @notice Called by the seller for completing the order
     /// @param _tradeID Escrow "tradeID" parameter
+    /// @param _hash Hash of the tradeID and the msg sender
     /// @param _sig Signature from either party
-    function executeOrder(bytes32 _tradeID, bytes memory _sig) external {
+    function executeOrder(
+        bytes32 _tradeID,
+        bytes32 _hash,
+        bytes memory _sig
+    ) external {
         Escrow storage _escrow = escrows[_tradeID];
 
         require(_escrow.exists, "Escrow does not exist");
 
         // concat a message out of the tradeID and the msg.sender
-        bytes32 messageHash = keccak256(abi.encodePacked(_tradeID, msg.sender));
-        messageHash = prefixed(messageHash);
-        address _signature = recoverSigner(messageHash, _sig);
+        // bytes32 messageHash = keccak256(abi.encodePacked(_tradeID, msg.sender));
+        address _address = ECDSA.recover(_hash, _sig);
+        // address _signature = recoverSigner(messageHash, _sig);
+
+        console.log("Signature", _address);
+        console.log("Seller", _escrow._seller);
 
         require(
-            _signature == _escrow._seller,
+            _address == _escrow._seller,
             "Signature must be from the seller"
         );
 

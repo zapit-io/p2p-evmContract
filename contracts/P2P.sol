@@ -156,11 +156,11 @@ contract ZapitP2PEscrow {
 
     /// @notice Called by the seller for completing the order
     /// @param _tradeID Escrow "tradeID" parameter
-    /// @param _hash Hash of the tradeID and the msg sender
+    /// @param message Message that was signed
     /// @param _sig Signature from either party
     function executeOrder(
         bytes32 _tradeID,
-        bytes32 _hash,
+        string memory message,
         bytes memory _sig
     ) external {
         Escrow storage _escrow = escrows[_tradeID];
@@ -168,11 +168,12 @@ contract ZapitP2PEscrow {
         require(_escrow.exists, "Escrow does not exist");
 
         // concat a message out of the tradeID and the msg.sender
-        bytes32 messageHash = keccak256(abi.encode(_tradeID, msg.sender));
+        bytes32 messageHash = keccak256(abi.encodePacked(message));
+        console.logBytes32(messageHash);
+        // bytes32 messageHash = prefixed(_hash);
         // console.logBytes32(messageHash);
-        console.logBytes32(_tradeID);
         address _address = ECDSA.recover(messageHash, _sig);
-        // address _signature = recoverSigner(messageHash, _sig);
+        // address _address = recoverSigner(messageHash, _sig);
 
         console.log("Address", _address);
         console.log("Seller", _escrow._seller);
@@ -284,21 +285,7 @@ contract ZapitP2PEscrow {
         bytes32 message,
         bytes memory signature
     ) internal pure returns (address) {
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-
-        assembly {
-            r := mload(add(signature, 32))
-            s := mload(add(signature, 64))
-            v := byte(0, mload(add(signature, 96)))
-        }
-
-        if (v < 27) {
-            v += 27;
-        }
-
-        require(v == 27 || v == 28);
+        (bytes32 r, bytes32 s, uint8 v) = splitSignature(signature);
 
         return ecrecover(message, v, r, s);
     }
@@ -313,7 +300,7 @@ contract ZapitP2PEscrow {
 
     function splitSignature(
         bytes memory sig
-    ) internal pure returns (uint8 v, bytes32 r, bytes32 s) {
+    ) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
         require(sig.length == 65);
         assembly {
             // first 32 bytes, after the length prefix

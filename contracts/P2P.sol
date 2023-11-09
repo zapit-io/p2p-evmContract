@@ -57,11 +57,6 @@ contract ZapitP2PEscrow {
         // So we know the escrow exists
         bool exists;
         // This is the timestamp in whic the seller can cancel the escrow after.
-        // It has two special values:
-        // 0 : Permanently locked by the buyer (i.e. marked as paid; the seller can never cancel)
-        // 1 : The seller can only request to cancel, which will change this value to a timestamp.
-        //     This option is avaialble for complex trade terms such as cash-in-person where a
-        //     payment window is inappropriate
         uint32 orderExpiration;
         // storing the timestamp when the escrow was created
         uint32 createdAt;

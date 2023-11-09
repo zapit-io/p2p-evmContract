@@ -51,6 +51,7 @@ contract ZapitP2PEscrow {
     event CancelledByBuyer(bytes32 indexed _tradeHash);
     event Released(bytes32 indexed _tradeHash);
     event DisputeClaimed(bytes32 indexed _tradeHash);
+    event TradeCompleted(bytes32 indexed _tradeHash);
 
     struct Escrow {
         // So we know the escrow exists
@@ -155,6 +156,30 @@ contract ZapitP2PEscrow {
         transferMinusFees(payable(msg.sender), _escrow._value, fees);
         _escrow.exists = false;
         emit DisputeClaimed(_tradeID);
+    }
+
+    /// @notice Called by the seller for completing the order
+    /// @param _tradeID Escrow "tradeID" parameter
+    /// @param _sig Signature from either party
+    function executeOrder(bytes32 _tradeID, bytes memory _sig) external {
+        Escrow storage _escrow = escrows[_tradeID];
+
+        require(_escrow.exists, "Escrow does not exist");
+
+        // concat a message out of the tradeID and the msg.sender
+        bytes32 messageHash = keccak256(abi.encodePacked(_tradeID, msg.sender));
+        messageHash = prefixed(messageHash);
+        address _signature = recoverSigner(messageHash, _sig);
+
+        require(
+            _signature == _escrow._seller,
+            "Signature must be from the seller"
+        );
+
+        // tranfer the funds to the msg.sender
+        transferMinusFees(payable(_escrow._buyer), _escrow._value, fees);
+        _escrow.exists = false;
+        emit TradeCompleted(_tradeID);
     }
 
     /// @notice Withdraw fees collected by the contract. Only the owner can call this.

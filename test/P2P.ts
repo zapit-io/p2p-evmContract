@@ -220,7 +220,7 @@ describe("ZapitP2PEscrow", function () {
         ethers.formatEther(await ethers.provider.getBalance(buyer.address))
       );
 
-      const data = `\x19Ethereum Signed Message:\n32${TRADE_ID}${seller.address}`;
+      const data = `${TRADE_ID}${seller.address}`;
       const hash = ethers.keccak256(ethers.toUtf8Bytes(data));
       const signature = await seller.signMessage(hash);
 

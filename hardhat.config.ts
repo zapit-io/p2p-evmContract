@@ -2,6 +2,7 @@ import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "hardhat-gas-reporter";
 import "@nomicfoundation/hardhat-verify";
+import "@nomiclabs/hardhat-web3";
 import dotenv from "dotenv";
 dotenv.config();
 

@@ -24,6 +24,24 @@ describe("Signature", function () {
 
   describe("Check the verification of the signature", function () {
     it("Check the signature to be correct", async function () {
+      const { signature, deployer, MESSAGE } = await loadFixture(deploySigner);
+
+      const messageHash = await signature
+        .connect(deployer)
+        .getMessageHash(MESSAGE);
+
+      const sig = await deployer.signMessage(messageHash);
+      const signData = await signature
+        .connect(deployer)
+        .getEthSignedMessageHash(messageHash);
+
+      const validation = await signature
+        .connect(deployer)
+        .verify(deployer.address, MESSAGE, sig);
+
+      expect(validation).to.equal(true);
+    });
+    it("Check the signature to be in-correct", async function () {
       const { signature, deployer, random, MESSAGE } = await loadFixture(
         deploySigner
       );
@@ -37,16 +55,11 @@ describe("Signature", function () {
         .connect(deployer)
         .getEthSignedMessageHash(messageHash);
 
-      const correctSignature = await signature
-        .connect(deployer)
-        .verify(deployer.address, MESSAGE, sig);
-
-      const inCorrectSignature = await signature
+      const validation = await signature
         .connect(deployer)
         .verify(random.address, MESSAGE, sig);
 
-      expect(correctSignature).to.equal(true);
-      expect(inCorrectSignature).to.equal(false);
+      expect(validation).to.equal(false);
     });
   });
 });

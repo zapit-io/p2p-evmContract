@@ -73,13 +73,14 @@ contract Signature {
         0x993dab3dd91f5c6dc28e17439be475478f5635c92a56e17e82349d3fb2f166196f466c0b4e0c146f285204f0dcb13e5ae67bc33f4b888ec32dfe0a063e8f3f781b
     */
     function verify(
+        address _signer,
         string memory _message,
         bytes memory signature
-    ) public view returns (bool) {
+    ) public pure returns (bool) {
         bytes32 messageHash = getMessageHash(_message);
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 
-        return recoverSigner(ethSignedMessageHash, signature) == msg.sender;
+        return recoverSigner(ethSignedMessageHash, signature) == _signer;
     }
 
     function recoverSigner(

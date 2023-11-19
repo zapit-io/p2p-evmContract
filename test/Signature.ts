@@ -26,11 +26,13 @@ describe("Signature", function () {
     it("Check the signature to be correct", async function () {
       const { signature, deployer, MESSAGE } = await loadFixture(deploySigner);
 
-      const messageHash = await signature
-        .connect(deployer)
-        .getMessageHash(MESSAGE);
+      const messageHash = await signature.getMessageHash(MESSAGE);
 
-      const sig = await deployer.signMessage(messageHash);
+      console.log({
+        messageHash,
+      });
+
+      const sig = await deployer.signMessage(ethers.getBytes(messageHash));
       const signData = await signature
         .connect(deployer)
         .getEthSignedMessageHash(messageHash);

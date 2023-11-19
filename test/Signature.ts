@@ -5,7 +5,7 @@ import {
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-describe("ZapitP2PEscrow", function () {
+describe("ZapitSignature", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshot in every test.
@@ -32,21 +32,19 @@ describe("ZapitP2PEscrow", function () {
       const messageHash = await signature
         .connect(deployer)
         .getMessageHash(MESSAGE);
+
       const sig = await deployer.signMessage(messageHash);
       const signData = await signature
         .connect(deployer)
         .getEthSignedMessageHash(messageHash);
-      console.log({
-        signData,
-        sig,
-      });
+
       const validation = await signature.connect(deployer).verify(MESSAGE, sig);
 
       console.log({
         validation,
       });
 
-      // expect(validation).to.equal(true);
+      expect(validation).to.equal(true);
     });
   });
 });

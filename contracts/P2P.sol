@@ -130,6 +130,17 @@ contract ZapitP2PEscrow {
         emit Created(_tradeID);
     }
 
+    /// @notice Getting a message-hash
+    /// @param _message Message that was signed
+    /// @param recipient Recipient address
+    /// @return bytes32 Message hash
+    function getMessageHash(
+        string memory _message,
+        address recipient
+    ) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_message, recipient));
+    }
+
     /// @notice Called by the favourable party for whom the order has been resolved by the arbitrator
     /// @param _tradeID Escrow "tradeID" parameter
     /// @param _sig Signature from either party
@@ -156,11 +167,11 @@ contract ZapitP2PEscrow {
 
     /// @notice Called by the seller for completing the order
     /// @param _tradeID Escrow "tradeID" parameter
-    /// @param message Message that was signed
+    /// @param _recipient Recipient address
     /// @param _sig Signature from either party
     function executeOrder(
         bytes32 _tradeID,
-        string memory message,
+        address _recipient,
         bytes memory _sig
     ) external {
         Escrow storage _escrow = escrows[_tradeID];
@@ -168,12 +179,9 @@ contract ZapitP2PEscrow {
         require(_escrow.exists, "Escrow does not exist");
 
         // concat a message out of the tradeID and the msg.sender
-        bytes32 messageHash = keccak256(abi.encodePacked(message));
-        console.logBytes32(messageHash);
-        // bytes32 messageHash = prefixed(_hash);
-        // console.logBytes32(messageHash);
-        address _address = ECDSA.recover(messageHash, _sig);
-        // address _address = recoverSigner(messageHash, _sig);
+        bytes32 messageHash = keccak256(abi.encodePacked(_tradeID, _recipient));
+        // address _address = ECDSA.recover(messageHash, _sig);
+        address _address = recoverSigner(messageHash, _sig);
 
         console.log("Address", _address);
         console.log("Seller", _escrow._seller);

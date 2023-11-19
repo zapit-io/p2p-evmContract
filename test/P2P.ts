@@ -204,47 +204,42 @@ describe("ZapitP2PEscrow", function () {
           )
       ).revertedWith("Escrow does not exist");
     });
-    // it("Revert if not called by a seller", async function () {
-    //   const { p2p, seller, TRADE_ID } = await loadFixture(createP2PEscrow);
+    it("Revert if not called by a seller", async function () {
+      const { p2p, seller, TRADE_ID, buyer } = await loadFixture(
+        createP2PEscrow
+      );
 
-    //   const hash = ethers.keccak256(TRADE_ID + seller.address);
-    //   const signature = await seller.signMessage(
-    //     ethers.getBytes(TRADE_ID + seller.address)
-    //   );
+      const hash = await p2p.getMessageHash(TRADE_ID, buyer.address);
+      const signature = await buyer.signMessage(ethers.getBytes(hash));
 
-    //   await expect(
-    //     p2p.connect(seller).executeOrder(TRADE_ID, hash, signature)
-    //   ).revertedWith("Signature must be from the seller");
-    // });
-    // it("Completion was successful", async function () {
-    //   const { p2p, seller, buyer, TRADE_ID } = await loadFixture(
-    //     createP2PEscrow
-    //   );
+      await expect(
+        p2p.connect(seller).executeOrder(TRADE_ID, buyer.address, signature)
+      ).revertedWith("Signature must be from the seller");
+    });
+    it("Completion was successful", async function () {
+      const { p2p, seller, buyer, TRADE_ID } = await loadFixture(
+        createP2PEscrow
+      );
 
-    //   const prevBalance = parseFloat(
-    //     ethers.formatEther(await ethers.provider.getBalance(buyer.address))
-    //   );
+      const prevBalance = parseFloat(
+        ethers.formatEther(await ethers.provider.getBalance(buyer.address))
+      );
 
-    //   const hash = ethers.keccak256(TRADE_ID + seller.address);
-    //   const signature = await seller.signMessage(ethers.getBytes(hash));
+      const hash = await p2p.getMessageHash(TRADE_ID, buyer.address);
+      const signature = await seller.signMessage(ethers.getBytes(hash));
 
-    //   console.log({
-    //     seller: seller.address,
-    //     buyer: buyer.address,
-    //   });
+      const txData = await p2p
+        .connect(seller)
+        .executeOrder(TRADE_ID, buyer.address, signature);
 
-    //   const txData = await p2p
-    //     .connect(seller)
-    //     .executeOrder(TRADE_ID, hash, signature);
+      const newBalance = parseFloat(
+        ethers.formatEther(await ethers.provider.getBalance(buyer.address))
+      );
 
-    //   const newBalance = parseFloat(
-    //     ethers.formatEther(await ethers.provider.getBalance(buyer.address))
-    //   );
+      await expect(txData).to.emit(p2p, "TradeCompleted").withArgs(TRADE_ID);
 
-    //   await expect(txData).to.emit(p2p, "Completed").withArgs(TRADE_ID);
-
-    //   expect(newBalance).to.be.greaterThan(prevBalance);
-    // });
+      expect(newBalance).to.be.greaterThan(prevBalance);
+    });
   });
 
   // describe("Claiming the amounts from a disputed order", function () {

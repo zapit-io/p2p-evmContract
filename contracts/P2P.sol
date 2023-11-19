@@ -150,9 +150,9 @@ contract ZapitP2PEscrow {
         require(_escrow.exists, "Escrow does not exist");
 
         // concat a message out of the tradeID and the msg.sender
-        bytes32 messageHash = keccak256(abi.encodePacked(_tradeID, msg.sender));
-        messageHash = prefixed(messageHash);
-        address _signature = recoverSigner(messageHash, _sig);
+        bytes32 messageHash = getMessageHash(_tradeID, msg.sender);
+        bytes32 signedMessageHash = getEthSignedMessageHash(messageHash);
+        address _signature = recoverSigner(signedMessageHash, _sig);
 
         require(
             _signature == arbitrator,

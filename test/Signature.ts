@@ -28,14 +28,8 @@ describe("Signature", function () {
 
       const messageHash = await signature.getMessageHash(MESSAGE);
 
-      console.log({
-        messageHash,
-      });
-
       const sig = await deployer.signMessage(ethers.getBytes(messageHash));
-      const signData = await signature
-        .connect(deployer)
-        .getEthSignedMessageHash(messageHash);
+      await signature.connect(deployer).getEthSignedMessageHash(messageHash);
 
       const validation = await signature
         .connect(deployer)
@@ -53,9 +47,7 @@ describe("Signature", function () {
         .getMessageHash(MESSAGE);
 
       const sig = await deployer.signMessage(messageHash);
-      const signData = await signature
-        .connect(deployer)
-        .getEthSignedMessageHash(messageHash);
+      await signature.connect(deployer).getEthSignedMessageHash(messageHash);
 
       const validation = await signature
         .connect(deployer)

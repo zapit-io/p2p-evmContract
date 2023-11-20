@@ -14,9 +14,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.18;
 
-import "hardhat/console.sol";
-import "./lib/ECDSA.sol";
-
 /// @title Zapit P2P Escrows
 /// @author Zapit
 contract ZapitP2PEscrow {
@@ -146,7 +143,6 @@ contract ZapitP2PEscrow {
     /// @param _sig Signature from either party
     function claimDisputedOrder(bytes32 _tradeID, bytes memory _sig) external {
         Escrow storage _escrow = escrows[_tradeID];
-        console.log("Claim-dispute", _escrow.exists);
         require(_escrow.exists, "Escrow does not exist");
 
         // concat a message out of the tradeID and the msg.sender
@@ -200,9 +196,6 @@ contract ZapitP2PEscrow {
         bytes32 messageHash = getMessageHash(_tradeID, _recipient);
         bytes32 signedMessageHash = getEthSignedMessageHash(messageHash);
         address _address = recoverSigner(signedMessageHash, _sig);
-
-        console.log("Address", _address);
-        console.log("Seller", _escrow._seller);
 
         require(
             _address == _escrow._seller,
@@ -284,8 +277,6 @@ contract ZapitP2PEscrow {
     /// @return bool
     function doBuyerCancel(bytes32 _tradeID) private returns (bool) {
         Escrow storage _escrow = escrows[_tradeID];
-
-        console.log("Escrow", _escrow.exists);
 
         require(_escrow.exists, "Escrow does not exist");
         require(msg.sender == _escrow._buyer, "Must be buyer");

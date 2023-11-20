@@ -19,7 +19,7 @@ describe("ZapitP2PEscrow", function () {
     // Contracts are deployed using the first signer/account by default
     const [deployer, arbitrator, buyer, seller] = await ethers.getSigners();
 
-    const p2p = await ethers.deployContract("ZapitP2PEscrow", [FEES]);
+    const p2p = await ethers.deployContract("P2PEscrow", [FEES]);
 
     return {
       p2p,

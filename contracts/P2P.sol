@@ -16,7 +16,7 @@ pragma solidity ^0.8.18;
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
-contract ZapitP2PEscrow {
+contract P2PEscrow {
     /***********************
     +   Global settings   +
     ***********************/

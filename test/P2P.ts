@@ -104,9 +104,9 @@ describe("ZapitP2PEscrow", function () {
 
       const escrow = await p2p.escrows(TRADE_ID);
       console.log(ESCROW_VALUE);
-      expect(escrow._seller).to.be.equal(seller.address);
-      expect(escrow._buyer).to.be.equal(buyer.address);
-      // expect(escrow._value).to.be.equal(ESCROW_VALUE.toString());
+      expect(escrow.seller).to.be.equal(seller.address);
+      expect(escrow.buyer).to.be.equal(buyer.address);
+      expect(escrow.value).to.be.equal(ESCROW_VALUE.toString());
     });
     it("Emits and event when an escrow is created", async function () {
       const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller } = await loadFixture(
@@ -152,15 +152,15 @@ describe("ZapitP2PEscrow", function () {
       const { p2p, buyer } = await loadFixture(createP2PEscrow);
 
       await expect(
-        p2p.connect(buyer).buyerCancel(ethers.encodeBytes32String("123"), 0x02)
+        p2p.connect(buyer).buyerCancel(ethers.encodeBytes32String("123"))
       ).to.be.revertedWith("Escrow does not exist");
     });
     it("Revert if not called by a buyer", async function () {
       const { p2p, TRADE_ID, seller } = await loadFixture(createP2PEscrow);
 
-      await expect(
-        p2p.connect(seller).buyerCancel(TRADE_ID, 0x02)
-      ).revertedWith("Must be buyer");
+      await expect(p2p.connect(seller).buyerCancel(TRADE_ID)).revertedWith(
+        "Must be buyer"
+      );
     });
     it("Cancellation was successful", async function () {
       const { p2p, TRADE_ID, buyer, seller } = await loadFixture(
@@ -173,7 +173,7 @@ describe("ZapitP2PEscrow", function () {
         ethers.formatEther(await provider.getBalance(seller.address))
       );
 
-      const txData = await p2p.connect(buyer).buyerCancel(TRADE_ID, 0x02);
+      const txData = await p2p.connect(buyer).buyerCancel(TRADE_ID);
 
       const newSellerBalance = parseFloat(
         ethers.formatEther(await provider.getBalance(seller.address))

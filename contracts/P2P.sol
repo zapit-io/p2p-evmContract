@@ -217,7 +217,8 @@ contract P2PEscrow {
     ) private {
         uint256 _totalFees = (_fee * _value) / 10000;
         feesAvailableForWithdraw += _totalFees;
-        payable(_to).transfer(_value - _totalFees);
+        (bool sent, ) = payable(_to).call{value: (_value - _totalFees)}("");
+        require(sent, "Failed to send Ether");
     }
 
     /// @notice Cancels the trade and returns the ETH to the seller. Can only be called the buyer.
@@ -297,7 +298,8 @@ contract P2PEscrow {
             "Amount is higher than amount available"
         );
         feesAvailableForWithdraw -= _amount;
-        payable(_to).transfer(_amount);
+        (bool sent, ) = payable(_to).call{value: (_amount)}("");
+        require(sent, "Failed to send Ether");
     }
 
     /// @notice Set the arbitrator to a new address. Only the owner can call this.

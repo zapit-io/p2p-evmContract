@@ -12,11 +12,13 @@
    limitations under the License.
 */
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.18;
+
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
-contract P2PEscrow {
+contract P2PEscrow is ReentrancyGuard {
     /***********************
     +   Global settings   +
     ***********************/
@@ -137,7 +139,10 @@ contract P2PEscrow {
     /// @notice Called by the favourable party for whom the order has been resolved by the arbitrator
     /// @param _tradeID Escrow "tradeID" parameter
     /// @param _sig Signature from either party
-    function claimDisputedOrder(bytes32 _tradeID, bytes memory _sig) external {
+    function claimDisputedOrder(
+        bytes32 _tradeID,
+        bytes memory _sig
+    ) external nonReentrant {
         Escrow storage _escrow = escrows[_tradeID];
         require(_escrow.exists, "Escrow does not exist");
 
@@ -165,7 +170,7 @@ contract P2PEscrow {
         bytes32 _tradeID,
         address _recipient,
         bytes memory _sig
-    ) external {
+    ) external nonReentrant {
         Escrow storage _escrow = escrows[_tradeID];
 
         require(_escrow.exists, "Escrow does not exist");
@@ -304,7 +309,7 @@ contract P2PEscrow {
     function withdrawFees(
         address payable _to,
         uint256 _amount
-    ) external onlyOwner nonZeroAddress(_to) {
+    ) external onlyOwner nonZeroAddress(_to) nonReentrant {
         // This check also prevents underflow
         require(
             _amount <= feesAvailableForWithdraw,
@@ -342,7 +347,7 @@ contract P2PEscrow {
     /// @notice Setting the fees of the contract
     /// @param _fees Fees in basis-points
     function setFees(uint8 _fees) public onlyOwner {
-        require(_fees < 10000, "Fees must be less than 10000");
+        require(_fees < 10000, "Fees must be greater than 10000");
         fees = _fees; // stored in terms of basis-points
         emit FeesChanged(_fees);
     }

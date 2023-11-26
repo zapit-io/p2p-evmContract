@@ -13,7 +13,6 @@
 */
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.18;
-
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title Zapit P2P Escrows

@@ -12,7 +12,7 @@
    limitations under the License.
 */
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
@@ -46,6 +46,10 @@ contract P2PEscrow {
     event Released(bytes32 indexed _tradeHash);
     event DisputeClaimed(bytes32 indexed _tradeHash);
     event TradeCompleted(bytes32 indexed _tradeHash);
+    event ArbitratorChanged(address indexed _newArbitrator);
+    event OwnerChanged(address indexed _newOwner);
+    event FeesChanged(uint16 indexed _newFees);
+    event FeeWithdrawn(address indexed _to, uint256 _amount);
 
     struct Escrow {
         // So we know the escrow exists
@@ -65,6 +69,23 @@ contract P2PEscrow {
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Must be owner");
+        _;
+    }
+
+    // modifier for checking a zero address
+    modifier nonZeroAddress(address _address) {
+        require(_address != address(0), "Address cannot be zero");
+        _;
+    }
+
+    // modifier for checking the address is not a contract
+
+    modifier nonContract(address _address) {
+        uint256 size;
+        assembly {
+            size := extcodesize(_address)
+        }
+        require(size == 0, "Address cannot be a contract");
         _;
     }
 
@@ -131,8 +152,8 @@ contract P2PEscrow {
         );
 
         // tranfer the funds to the msg.sender
-        transferMinusFees(payable(msg.sender), _escrow.value, fees);
         _escrow.exists = false;
+        transferMinusFees(payable(msg.sender), _escrow.value, fees);
         emit DisputeClaimed(_tradeID);
     }
 
@@ -160,8 +181,8 @@ contract P2PEscrow {
         );
 
         // tranfer the funds to the msg.sender
-        transferMinusFees(payable(_escrow.buyer), _escrow.value, fees);
         _escrow.exists = false;
+        transferMinusFees(payable(_escrow.buyer), _escrow.value, fees);
         emit TradeCompleted(_tradeID);
     }
 
@@ -273,14 +294,6 @@ contract P2PEscrow {
         // implicitly return (r, s, v)
     }
 
-    // Builds a prefixed hash to mimic the behavior of eth_sign.
-    function prefixed(bytes32 hash) internal pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encodePacked("\x19Ethereum Signed Message:\n32", hash)
-            );
-    }
-
     /***********************
     +   Admin-Functions   +
     ***********************/
@@ -291,7 +304,7 @@ contract P2PEscrow {
     function withdrawFees(
         address payable _to,
         uint256 _amount
-    ) external onlyOwner {
+    ) external onlyOwner nonZeroAddress(_to) {
         // This check also prevents underflow
         require(
             _amount <= feesAvailableForWithdraw,
@@ -300,18 +313,30 @@ contract P2PEscrow {
         feesAvailableForWithdraw -= _amount;
         (bool sent, ) = payable(_to).call{value: (_amount)}("");
         require(sent, "Failed to send Ether");
+        emit FeeWithdrawn(_to, _amount);
     }
 
     /// @notice Set the arbitrator to a new address. Only the owner can call this.
     /// @param _newArbitrator Address of the replacement arbitrator
-    function setArbitrator(address _newArbitrator) external onlyOwner {
+    function setArbitrator(
+        address _newArbitrator
+    )
+        external
+        onlyOwner
+        nonContract(_newArbitrator)
+        nonZeroAddress(_newArbitrator)
+    {
         arbitrator = _newArbitrator;
+        emit ArbitratorChanged(_newArbitrator);
     }
 
     /// @notice Change the owner to a new address. Only the owner can call this.
     /// @param _newOwner Address of the replacement owner
-    function setOwner(address _newOwner) external onlyOwner {
+    function setOwner(
+        address _newOwner
+    ) external onlyOwner nonContract(_newOwner) nonZeroAddress(_newOwner) {
         owner = _newOwner;
+        emit OwnerChanged(_newOwner);
     }
 
     /// @notice Setting the fees of the contract
@@ -319,5 +344,6 @@ contract P2PEscrow {
     function setFees(uint8 _fees) public onlyOwner {
         require(_fees < 10000, "Fees must be less than 10000");
         fees = _fees; // stored in terms of basis-points
+        emit FeesChanged(_fees);
     }
 }

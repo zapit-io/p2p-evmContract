@@ -172,7 +172,7 @@ contract P2PEscrow is ReentrancyGuard {
          * - disputed in favour of seller, no fees
          * - disputed in favour of buyer, fees will be there
          */
-        uint16 fee = msg.sender == _escrow.seller ? 0 : fees;
+        uint16 fee = msg.sender == _escrow.seller ? 0 : _escrow._fee;
 
         // tranfer the funds to the msg.sender
         _escrow.exists = false;
@@ -205,7 +205,7 @@ contract P2PEscrow is ReentrancyGuard {
 
         // tranfer the funds to the msg.sender
         _escrow.exists = false;
-        transferMinusFees(payable(_escrow.buyer), _escrow.value, fees);
+        transferMinusFees(payable(_escrow.buyer), _escrow.value, _escrow._fee);
         emit TradeCompleted(_tradeID);
     }
 
@@ -262,8 +262,8 @@ contract P2PEscrow is ReentrancyGuard {
         /**
          * @description: here we are initializing the variables with an assumption that the transfer is for a good order as in completed
          */
-        uint256 _totalFees = (_value * _fee) / 10000;
-        uint256 _totalTransferValue = _value - _totalFees / 2;
+        uint256 _totalFees = (_value * _fee) / 10000; // total-fees
+        uint256 _totalTransferValue = _value - _totalFees / 2; // buyer-side fees which is 50% of the _totalFees
         /**
          * @description: if the fee is 0 and the caller is the seller(i.e. msg.sender) then we don't charge any fee(s) on that escrow
          */

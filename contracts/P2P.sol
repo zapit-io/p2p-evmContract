@@ -305,7 +305,7 @@ contract P2PEscrow is ReentrancyGuard {
     function withdrawFees(
         address payable _to,
         uint256 _amount
-    ) external onlyOwner nonZeroAddress(_to) nonReentrant {
+    ) external onlyOwner nonReentrant {
         // This check also prevents underflow
         require(
             _amount <= feesAvailableForWithdraw,

@@ -341,8 +341,8 @@ contract P2PEscrow is ReentrancyGuard {
 
     /// @notice Setting the fees of the contract
     /// @param _fees Fees in basis-points
-    function setFees(uint8 _fees) public onlyOwner {
-        require(_fees < 10000, "Fees must be greater than 10000");
+    function setFees(uint16 _fees) public onlyOwner {
+        require(_fees < 10000, "Fees must be less than 10000");
         fees = _fees; // stored in terms of basis-points
         emit FeesChanged(_fees);
     }

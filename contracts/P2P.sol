@@ -242,8 +242,7 @@ contract P2PEscrow is ReentrancyGuard {
     ) private {
         uint256 _totalFees = (_fee * _value) / 10000;
         feesAvailableForWithdraw += _totalFees;
-        (bool sent, ) = payable(_to).call{value: (_value - _totalFees)}("");
-        require(sent, "Failed to send Ether");
+        payable(_to).transfer(_value - _totalFees);
     }
 
     /// @notice Cancels the trade and returns the ETH to the seller. Can only be called the buyer.
@@ -315,8 +314,7 @@ contract P2PEscrow is ReentrancyGuard {
             "Amount is higher than amount available"
         );
         feesAvailableForWithdraw -= _amount;
-        (bool sent, ) = payable(_to).call{value: (_amount)}("");
-        require(sent, "Failed to send Ether");
+        payable(_to).transfer(_amount);
         emit FeeWithdrawn(_to, _amount);
     }
 

@@ -68,6 +68,8 @@ contract P2PEscrow is ReentrancyGuard {
         uint256 createdAt;
         // fees based on bps
         uint16 _fee;
+        // token address
+        address token;
         // address of the buyer
         address payable buyer;
         // address of the seller
@@ -145,6 +147,49 @@ contract P2PEscrow is ReentrancyGuard {
             true,
             block.number,
             fees,
+            address(0),
+            payable(_buyer),
+            payable(msg.sender),
+            _value
+        );
+        emit Created(_tradeID, fees, msg.sender, _buyer, _value);
+    }
+
+    /// @notice Create and fund a new escrow.
+    /// @param _buyer The buying party
+    /// @param _value The amount of the escrow, exclusive of the fee
+    /// @param _token The address of the token to be used for the escrow
+    function createTokenEscrow(
+        address _buyer,
+        uint256 _value,
+        address _token
+    ) external payable {
+        bytes32 _tradeID = keccak256(
+            abi.encodePacked(block.number, msg.sender, _buyer, _value)
+        );
+
+        // Require that trade does not already exist
+        require(!escrows[_tradeID].exists, "Trade already exists");
+        // check if the token is accepted
+        require(acceptedTokens[_token], "Token not accepted");
+
+        // Check transaction value against passed _value and make sure is not 0
+        /**
+         @description: value + seller fees = msg.value
+         */
+        uint256 _sellerFees = (_value * fees) / (10000 * 2);
+
+        require(
+            msg.value == (_value + _sellerFees) && msg.value > 0,
+            "Incorrect ETH sent"
+        );
+
+        // Add the escrow to the public mapping
+        escrows[_tradeID] = Escrow(
+            true,
+            block.number,
+            fees,
+            _token,
             payable(_buyer),
             payable(msg.sender),
             _value

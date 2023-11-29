@@ -155,7 +155,7 @@ contract P2PEscrow is ReentrancyGuard {
         emit Created(_tradeID, fees, msg.sender, _buyer, _value);
     }
 
-    /// @notice Create and fund a new escrow.
+    /// @notice Create and fund a new escrow for token.
     /// @param _buyer The buying party
     /// @param _value The amount of the escrow, exclusive of the fee
     /// @param _token The address of the token to be used for the escrow

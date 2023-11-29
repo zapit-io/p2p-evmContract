@@ -11,7 +11,9 @@
 */
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.18;
+
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
@@ -28,6 +30,9 @@ contract P2PEscrow is ReentrancyGuard {
 
     // Cumulative balance of collected fees
     uint256 public feesAvailableForWithdraw;
+
+    // list of accepted erc20 tokens for escrow
+    mapping(address => bool) public acceptedTokens;
 
     /***********************
     +  Instruction types  +
@@ -347,6 +352,12 @@ contract P2PEscrow is ReentrancyGuard {
         feesAvailableForWithdraw -= _amount;
         payable(_to).transfer(_amount);
         emit FeeWithdrawn(_to, _amount);
+    }
+
+    ///@notice Setting the accepted tokens for escrow
+    ///@param _token Address of the token
+    function setAcceptedTokens(address _token) external onlyOwner {
+        acceptedTokens[_token] = !acceptedTokens[_token];
     }
 
     /// @notice Set the arbitrator to a new address. Only the owner can call this.

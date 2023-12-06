@@ -141,9 +141,10 @@ contract P2PEscrow is ReentrancyGuard {
         // check if the token is not erc20 and check if the token is accepted or not
 
         if (!_isERC20) {
+            require(_token == address(0), "Invalid native-currency");
             require(
-                _token == address(0),
-                "Token must be 0 for native currency"
+                IERC20(_token).transferFrom(msg.sender, address(this), _value),
+                "Tokens not approved"
             );
         } else {
             require(acceptedTokens[_token], "Token not accepted");

@@ -69,7 +69,7 @@ contract P2PEscrow is ReentrancyGuard {
         // fees based on bps
         uint16 _fee;
         // token address
-        address token;
+        address token; // 0 if ETH
         // address of the buyer
         address payable buyer;
         // address of the seller
@@ -123,13 +123,31 @@ contract P2PEscrow is ReentrancyGuard {
     /// @notice Create and fund a new escrow.
     /// @param _buyer The buying party
     /// @param _value The amount of the escrow, exclusive of the fee
-    function createEscrow(address _buyer, uint256 _value) external payable {
+    /// @param _isERC20 Whether the escrow is for an ERC20 token
+    /// @param _token The address of the token to be used for the escrow
+    function createEscrow(
+        address _buyer,
+        uint256 _value,
+        bool _isERC20,
+        address _token
+    ) external payable {
         bytes32 _tradeID = keccak256(
             abi.encodePacked(block.number, msg.sender, _buyer, _value)
         );
 
         // Require that trade does not already exist
         require(!escrows[_tradeID].exists, "Trade already exists");
+
+        // check if the token is not erc20 and check if the token is accepted or not
+
+        if (!_isERC20) {
+            require(
+                _token == address(0),
+                "Token must be 0 for native currency"
+            );
+        } else {
+            require(acceptedTokens[_token], "Token not accepted");
+        }
 
         // Check transaction value against passed _value and make sure is not 0
         /**

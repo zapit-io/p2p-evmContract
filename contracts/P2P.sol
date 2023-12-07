@@ -15,7 +15,7 @@ contract P2PEscrow is ReentrancyGuard {
     address public arbitrator;
     // Address of the owner (who can withdraw collected fees)
     address public owner;
-    uint16 public fees; // fees for zapit
+    uint16 public fees; // fees for zapit in bps
 
     // Cumulative balance of collected fees
     uint256 public feesAvailableForWithdraw;

@@ -51,7 +51,11 @@ contract P2PEscrow is ReentrancyGuard {
     event ArbitratorChanged(address indexed _newArbitrator);
     event OwnerChanged(address indexed _newOwner);
     event FeesChanged(uint16 indexed _newFees);
-    event FeeWithdrawn(address indexed _to, uint256 _amount);
+    event FeeWithdrawn(
+        address indexed _to,
+        uint256 _amount,
+        address indexed _token
+    );
 
     struct Escrow {
         // So we know the escrow exists
@@ -170,6 +174,8 @@ contract P2PEscrow is ReentrancyGuard {
 
         // check if the token is not erc20 and check if the token is accepted or not
 
+        uint256 prevTokenBalance = IERC20(_token).balanceOf(address(this));
+
         require(
             IERC20(_token).transferFrom(msg.sender, address(this), _value),
             "Tokens not approved"
@@ -186,7 +192,7 @@ contract P2PEscrow is ReentrancyGuard {
         uint256 _sellerFees = (_value * fees) / (10000 * 2);
 
         require(
-            currentTokenBalance == (_value + _sellerFees),
+            (currentTokenBalance - prevTokenBalance) == (_value + _sellerFees),
             "Incorrect Token value"
         );
 
@@ -347,7 +353,11 @@ contract P2PEscrow is ReentrancyGuard {
                 feesAvailableForWithdraw += _totalFees;
             }
         }
-        payable(_to).transfer(_totalTransferValue);
+        if (isErc20) {
+            IERC20(_token).transfer(_to, _totalTransferValue);
+        } else {
+            payable(_to).transfer(_totalTransferValue);
+        }
     }
 
     /// @notice Cancels the trade and returns the ETH to the seller. Can only be called the buyer.
@@ -415,18 +425,29 @@ contract P2PEscrow is ReentrancyGuard {
     /// @notice Withdraw fees collected by the contract. Only the owner can call this.
     /// @param _to Address to withdraw fees in to
     /// @param _amount Amount to withdraw
+    /// @param _token Address of the token
     function withdrawFees(
         address payable _to,
-        uint256 _amount
+        uint256 _amount,
+        address _token
     ) external onlyOwner nonReentrant {
         // This check also prevents underflow
         require(
             _amount <= feesAvailableForWithdraw,
             "Amount is higher than amount available"
         );
-        feesAvailableForWithdraw -= _amount;
-        payable(_to).transfer(_amount);
-        emit FeeWithdrawn(_to, _amount);
+        if (_token != address(0)) {
+            require(
+                _amount <= feesAvailableForWithdrawErc20[_token],
+                "Amount is higher than amount available"
+            );
+            feesAvailableForWithdrawErc20[_token] -= _amount;
+            IERC20(_token).transfer(_to, _amount);
+        } else {
+            feesAvailableForWithdraw -= _amount;
+            payable(_to).transfer(_amount);
+        }
+        emit FeeWithdrawn(_to, _amount, _token);
     }
 
     ///@notice Setting the accepted tokens for escrow

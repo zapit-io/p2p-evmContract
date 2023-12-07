@@ -20,6 +20,9 @@ contract P2PEscrow is ReentrancyGuard {
     // Cumulative balance of collected fees
     uint256 public feesAvailableForWithdraw;
 
+    // Cumulative balance for collected fees for erc20 tokens
+    mapping(address => uint256) public feesAvailableForWithdrawErc20;
+
     // list of accepted erc20 tokens for escrow
     mapping(address => bool) public acceptedTokens;
 
@@ -112,32 +115,10 @@ contract P2PEscrow is ReentrancyGuard {
     /// @notice Create and fund a new escrow.
     /// @param _buyer The buying party
     /// @param _value The amount of the escrow, exclusive of the fee
-    /// @param _isERC20 Whether the escrow is for an ERC20 token
-    /// @param _token The address of the token to be used for the escrow
-    function createEscrow(
-        address _buyer,
-        uint256 _value,
-        bool _isERC20,
-        address _token
-    ) external payable {
+    function createEscrow(address _buyer, uint256 _value) external payable {
         bytes32 _tradeID = keccak256(
             abi.encodePacked(block.number, msg.sender, _buyer, _value)
         );
-
-        // Require that trade does not already exist
-        require(!escrows[_tradeID].exists, "Trade already exists");
-
-        // check if the token is not erc20 and check if the token is accepted or not
-
-        if (!_isERC20) {
-            require(_token == address(0), "Invalid native-currency");
-            require(
-                IERC20(_token).transferFrom(msg.sender, address(this), _value),
-                "Tokens not approved"
-            );
-        } else {
-            require(acceptedTokens[_token], "Token not accepted");
-        }
 
         // Check transaction value against passed _value and make sure is not 0
         /**
@@ -179,17 +160,34 @@ contract P2PEscrow is ReentrancyGuard {
         // Require that trade does not already exist
         require(!escrows[_tradeID].exists, "Trade already exists");
         // check if the token is accepted
-        require(acceptedTokens[_token], "Token not accepted");
+        require(
+            acceptedTokens[_token] && _token != address(0),
+            "Token not accepted"
+        );
 
-        // Check transaction value against passed _value and make sure is not 0
+        // Require that trade does not already exist
+        require(!escrows[_tradeID].exists, "Trade already exists");
+
+        // check if the token is not erc20 and check if the token is accepted or not
+
+        require(
+            IERC20(_token).transferFrom(msg.sender, address(this), _value),
+            "Tokens not approved"
+        );
+
+        // checking the current token balance of the contract after the transfer
+        uint256 currentTokenBalance = IERC20(_token).balanceOf(address(this));
+
+        // Check transaction value against transferred value to the contract
+
         /**
-         @description: value + seller fees = msg.value
+          @description value + seller fees = msg.value
          */
         uint256 _sellerFees = (_value * fees) / (10000 * 2);
 
         require(
-            msg.value == (_value + _sellerFees) && msg.value > 0,
-            "Incorrect ETH sent"
+            currentTokenBalance == (_value + _sellerFees),
+            "Incorrect Token value"
         );
 
         // Add the escrow to the public mapping
@@ -234,7 +232,13 @@ contract P2PEscrow is ReentrancyGuard {
 
         // tranfer the funds to the msg.sender
         _escrow.exists = false;
-        transferMinusFees(payable(msg.sender), _escrow.value, fee);
+        transferMinusFees(
+            payable(msg.sender),
+            _escrow.value,
+            fee,
+            false,
+            address(0)
+        );
         emit DisputeClaimed(_tradeID);
     }
 
@@ -263,7 +267,13 @@ contract P2PEscrow is ReentrancyGuard {
 
         // tranfer the funds to the msg.sender
         _escrow.exists = false;
-        transferMinusFees(payable(_escrow.buyer), _escrow.value, _escrow._fee);
+        transferMinusFees(
+            payable(_escrow.buyer),
+            _escrow.value,
+            _escrow._fee,
+            false,
+            address(0)
+        );
         emit TradeCompleted(_tradeID);
     }
 
@@ -315,7 +325,9 @@ contract P2PEscrow is ReentrancyGuard {
     function transferMinusFees(
         address payable _to,
         uint256 _value,
-        uint256 _fee
+        uint256 _fee,
+        bool isErc20,
+        address _token
     ) private {
         /**
          * @description: here we are initializing the variables with an assumption that the transfer is for a good order as in completed
@@ -344,7 +356,13 @@ contract P2PEscrow is ReentrancyGuard {
         require(msg.sender == _escrow.buyer, "Must be buyer");
 
         emit CancelledByBuyer(_tradeID);
-        transferMinusFees(_escrow.seller, _escrow.value, fees);
+        transferMinusFees(
+            _escrow.seller,
+            _escrow.value,
+            fees,
+            false,
+            address(0)
+        );
         return true;
     }
 

@@ -341,7 +341,11 @@ contract P2PEscrow is ReentrancyGuard {
             _totalFees = _totalFees / 2;
             _totalTransferValue = _value + _totalFees;
         } else {
-            feesAvailableForWithdraw += _totalFees;
+            if (isErc20) {
+                feesAvailableForWithdrawErc20[_token] += _totalFees;
+            } else {
+                feesAvailableForWithdraw += _totalFees;
+            }
         }
         payable(_to).transfer(_totalTransferValue);
     }

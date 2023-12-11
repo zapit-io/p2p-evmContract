@@ -19,7 +19,9 @@ describe("ZapitP2PEscrow", function () {
       `${ETHERS_VALUE + (ETHERS_VALUE * FEES) / (10000 * 2)}`
     ); //  calculated after seller sent their 50% of the fees
     const TRADE_ID =
-      "0x9151af87a259f925b834235cbb82f72ed85ab9adf2c79f779e7f634b6f5776b8";
+      "0x8920755501b54087d26177c51b1956d5ba880200a420193f6854d7d0f97c38f6";
+
+    const EXT_TRADE_RANDOM = ethers.encodeBytes32String("123");
 
     // Contracts are deployed using the first signer/account by default
     const [deployer, arbitrator, buyer, seller] = await ethers.getSigners();
@@ -33,6 +35,7 @@ describe("ZapitP2PEscrow", function () {
       buyer,
       seller,
       TRADE_ID,
+      EXT_TRADE_RANDOM,
       ESCROW_VALUE,
       PAYMENT_WINDOW,
       ESCROW_TOTAL_VALUE,
@@ -49,6 +52,7 @@ describe("ZapitP2PEscrow", function () {
       buyer,
       seller,
       TRADE_ID,
+      EXT_TRADE_RANDOM,
       ESCROW_VALUE,
       PAYMENT_WINDOW,
       ESCROW_TOTAL_VALUE,
@@ -58,7 +62,7 @@ describe("ZapitP2PEscrow", function () {
 
     const tx = await p2p
       .connect(seller)
-      .createEscrow(buyer.address, ESCROW_VALUE, {
+      .createEscrow(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
         value: ESCROW_TOTAL_VALUE,
       });
 
@@ -73,6 +77,7 @@ describe("ZapitP2PEscrow", function () {
       buyer,
       seller,
       TRADE_ID,
+      EXT_TRADE_RANDOM,
       ESCROW_VALUE,
       PAYMENT_WINDOW,
       ESCROW_TOTAL_VALUE,
@@ -99,26 +104,43 @@ describe("ZapitP2PEscrow", function () {
 
   describe("Test for creation of escrow", function () {
     it("Emits and event when an escrow is created", async function () {
-      const { p2p, buyer, ESCROW_VALUE, ESCROW_TOTAL_VALUE, seller, TRADE_ID } =
+      const {
+        p2p,
+        buyer,
+        ESCROW_VALUE,
+        ESCROW_TOTAL_VALUE,
+        EXT_TRADE_RANDOM,
+        seller,
+        TRADE_ID,
+      } = await loadFixture(deployP2PEscrow);
+
+      await expect(
+        p2p
+          .connect(seller)
+          .createEscrow(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
+            value: ESCROW_TOTAL_VALUE,
+          })
+      )
+        .to.emit(p2p, "Created")
+        .withArgs(
+          TRADE_ID,
+          100,
+          seller.address,
+          buyer.address,
+          ESCROW_VALUE,
+          EXT_TRADE_RANDOM
+        );
+    });
+    it("Send wrong value to create an escrow", async function () {
+      const { p2p, buyer, ESCROW_VALUE, EXT_TRADE_RANDOM, seller } =
         await loadFixture(deployP2PEscrow);
 
       await expect(
-        p2p.connect(seller).createEscrow(buyer.address, ESCROW_VALUE, {
-          value: ESCROW_TOTAL_VALUE,
-        })
-      )
-        .to.emit(p2p, "Created")
-        .withArgs(TRADE_ID, 100, seller.address, buyer.address, ESCROW_VALUE);
-    });
-    it("Send wrong value to create an escrow", async function () {
-      const { p2p, buyer, ESCROW_VALUE, seller } = await loadFixture(
-        deployP2PEscrow
-      );
-
-      await expect(
-        p2p.connect(seller).createEscrow(buyer.address, ESCROW_VALUE, {
-          value: ESCROW_VALUE,
-        })
+        p2p
+          .connect(seller)
+          .createEscrow(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
+            value: ESCROW_VALUE,
+          })
       ).to.be.revertedWith("Incorrect ETH sent");
     });
   });

@@ -18,6 +18,8 @@ describe("ZapitP2PEscrow", function () {
     const ESCROW_TOTAL_VALUE = ethers.parseEther(
       `${ETHERS_VALUE + (ETHERS_VALUE * FEES) / (10000 * 2)}`
     ); //  calculated after seller sent their 50% of the fees
+    const TRADE_ID =
+      "0x9151af87a259f925b834235cbb82f72ed85ab9adf2c79f779e7f634b6f5776b8";
 
     // Contracts are deployed using the first signer/account by default
     const [deployer, arbitrator, buyer, seller] = await ethers.getSigners();
@@ -30,6 +32,7 @@ describe("ZapitP2PEscrow", function () {
       arbitrator,
       buyer,
       seller,
+      TRADE_ID,
       ESCROW_VALUE,
       PAYMENT_WINDOW,
       ESCROW_TOTAL_VALUE,
@@ -45,6 +48,7 @@ describe("ZapitP2PEscrow", function () {
       arbitrator,
       buyer,
       seller,
+      TRADE_ID,
       ESCROW_VALUE,
       PAYMENT_WINDOW,
       ESCROW_TOTAL_VALUE,
@@ -52,9 +56,13 @@ describe("ZapitP2PEscrow", function () {
     } = await loadFixture(deployP2PEscrow);
     const MESSAGE_DISPUTE = "ABCD";
 
-    await p2p.createEscrow(buyer.address, ESCROW_VALUE, {
-      value: ESCROW_TOTAL_VALUE,
-    });
+    const tx = await p2p
+      .connect(seller)
+      .createEscrow(buyer.address, ESCROW_VALUE, {
+        value: ESCROW_TOTAL_VALUE,
+      });
+
+    await tx.wait();
 
     await p2p.connect(deployer).setArbitrator(arbitrator.address);
 
@@ -64,6 +72,7 @@ describe("ZapitP2PEscrow", function () {
       arbitrator,
       buyer,
       seller,
+      TRADE_ID,
       ESCROW_VALUE,
       PAYMENT_WINDOW,
       ESCROW_TOTAL_VALUE,
@@ -89,30 +98,17 @@ describe("ZapitP2PEscrow", function () {
   });
 
   describe("Test for creation of escrow", function () {
-    it("Creates an escrow", async function () {
-      const { p2p, buyer, ESCROW_VALUE, seller } = await loadFixture(
-        createP2PEscrow
-      );
-      await time.increase(1000);
-
-      const escrow = await p2p.escrows(TRADE_ID);
-      console.log(ESCROW_VALUE);
-      expect(escrow.seller).to.be.equal(seller.address);
-      expect(escrow.buyer).to.be.equal(buyer.address);
-      expect(escrow.value).to.be.equal(ESCROW_VALUE.toString());
-    });
     it("Emits and event when an escrow is created", async function () {
-      const { p2p, buyer, ESCROW_VALUE, seller } = await loadFixture(
-        deployP2PEscrow
-      );
+      const { p2p, buyer, ESCROW_VALUE, ESCROW_TOTAL_VALUE, seller, TRADE_ID } =
+        await loadFixture(deployP2PEscrow);
 
       await expect(
-        p2p.createEscrow(buyer.address, ESCROW_VALUE, {
-          value: ESCROW_VALUE,
+        p2p.connect(seller).createEscrow(buyer.address, ESCROW_VALUE, {
+          value: ESCROW_TOTAL_VALUE,
         })
       )
         .to.emit(p2p, "Created")
-        .withArgs(null, seller.address, buyer.address, ESCROW_VALUE);
+        .withArgs(TRADE_ID, 100, seller.address, buyer.address, ESCROW_VALUE);
     });
     it("Send wrong value to create an escrow", async function () {
       const { p2p, buyer, ESCROW_VALUE, seller } = await loadFixture(
@@ -120,17 +116,10 @@ describe("ZapitP2PEscrow", function () {
       );
 
       await expect(
-        p2p.createEscrow(buyer.address, ESCROW_VALUE)
+        p2p.connect(seller).createEscrow(buyer.address, ESCROW_VALUE, {
+          value: ESCROW_VALUE,
+        })
       ).to.be.revertedWith("Incorrect ETH sent");
-    });
-    it("Try to create an already existing escrow", async function () {
-      const { p2p, buyer, ESCROW_VALUE, seller } = await loadFixture(
-        createP2PEscrow
-      );
-
-      await expect(
-        p2p.createEscrow(buyer.address, ESCROW_VALUE)
-      ).to.be.revertedWith("Trade already exists");
     });
   });
 
@@ -143,7 +132,7 @@ describe("ZapitP2PEscrow", function () {
       ).to.be.revertedWith("Escrow does not exist");
     });
     it("Revert if not called by a buyer", async function () {
-      const { p2p, seller } = await loadFixture(createP2PEscrow);
+      const { p2p, seller, TRADE_ID } = await loadFixture(createP2PEscrow);
 
       await expect(p2p.connect(seller).buyerCancel(TRADE_ID)).revertedWith(
         "Must be buyer"

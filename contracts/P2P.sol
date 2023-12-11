@@ -4,8 +4,6 @@ pragma solidity ^0.8.18;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "hardhat/console.sol";
-
 /// @title Zapit P2P Escrows
 /// @author Zapit
 contract P2PEscrow is ReentrancyGuard {
@@ -128,8 +126,6 @@ contract P2PEscrow is ReentrancyGuard {
 
         // checkiing if the trade already exists
         require(!escrows[_tradeID].exists, "Trade already exists");
-
-        console.logBytes32(_tradeID);
 
         // Check transaction value against passed _value and make sure is not 0
         /**

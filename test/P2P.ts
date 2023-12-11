@@ -74,17 +74,13 @@ describe("ZapitP2PEscrow", function () {
 
   describe("Deployment", function () {
     it("Should set the right initial data", async function () {
-      const { p2p, deployer, FEES, TRADE_ID } = await loadFixture(
-        deployP2PEscrow
-      );
+      const { p2p, deployer, FEES } = await loadFixture(deployP2PEscrow);
 
       const [owner, arbitrator, fees] = await Promise.all([
         p2p.owner(),
         p2p.arbitrator(),
         p2p.fees(),
       ]);
-
-      console.log(TRADE_ID);
 
       expect(owner).to.be.equal(deployer.address);
       expect(arbitrator).to.be.equal(deployer.address);
@@ -94,7 +90,7 @@ describe("ZapitP2PEscrow", function () {
 
   describe("Test for creation of escrow", function () {
     it("Creates an escrow", async function () {
-      const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller } = await loadFixture(
+      const { p2p, buyer, ESCROW_VALUE, seller } = await loadFixture(
         createP2PEscrow
       );
       await time.increase(1000);
@@ -106,7 +102,7 @@ describe("ZapitP2PEscrow", function () {
       expect(escrow.value).to.be.equal(ESCROW_VALUE.toString());
     });
     it("Emits and event when an escrow is created", async function () {
-      const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller } = await loadFixture(
+      const { p2p, buyer, ESCROW_VALUE, seller } = await loadFixture(
         deployP2PEscrow
       );
 
@@ -116,10 +112,10 @@ describe("ZapitP2PEscrow", function () {
         })
       )
         .to.emit(p2p, "Created")
-        .withArgs(TRADE_ID);
+        .withArgs(null, seller.address, buyer.address, ESCROW_VALUE);
     });
     it("Send wrong value to create an escrow", async function () {
-      const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller } = await loadFixture(
+      const { p2p, buyer, ESCROW_VALUE, seller } = await loadFixture(
         deployP2PEscrow
       );
 
@@ -128,7 +124,7 @@ describe("ZapitP2PEscrow", function () {
       ).to.be.revertedWith("Incorrect ETH sent");
     });
     it("Try to create an already existing escrow", async function () {
-      const { p2p, TRADE_ID, buyer, ESCROW_VALUE, seller } = await loadFixture(
+      const { p2p, buyer, ESCROW_VALUE, seller } = await loadFixture(
         createP2PEscrow
       );
 
@@ -147,7 +143,7 @@ describe("ZapitP2PEscrow", function () {
       ).to.be.revertedWith("Escrow does not exist");
     });
     it("Revert if not called by a buyer", async function () {
-      const { p2p, TRADE_ID, seller } = await loadFixture(createP2PEscrow);
+      const { p2p, seller } = await loadFixture(createP2PEscrow);
 
       await expect(p2p.connect(seller).buyerCancel(TRADE_ID)).revertedWith(
         "Must be buyer"

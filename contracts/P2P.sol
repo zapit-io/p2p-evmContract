@@ -42,7 +42,8 @@ contract P2PEscrow is ReentrancyGuard {
         uint16 _fees,
         address indexed _seller,
         address indexed _buyer,
-        uint256 _value
+        uint256 _value,
+        bytes32 _extUniqueHash
     );
     event CancelledByBuyer(bytes32 indexed _tradeHash);
     event Released(bytes32 indexed _tradeHash);
@@ -119,9 +120,20 @@ contract P2PEscrow is ReentrancyGuard {
     /// @notice Create and fund a new escrow.
     /// @param _buyer The buying party
     /// @param _value The amount of the escrow, exclusive of the fee
-    function createEscrow(address _buyer, uint256 _value) external payable {
+    /// @param _extUniqueHash The external unique hash of the escrow
+    function createEscrow(
+        address _buyer,
+        uint256 _value,
+        bytes32 _extUniqueHash
+    ) external payable {
         bytes32 _tradeID = keccak256(
-            abi.encodePacked(block.number, msg.sender, _buyer, _value)
+            abi.encodePacked(
+                block.number,
+                msg.sender,
+                _buyer,
+                _value,
+                _extUniqueHash
+            )
         );
 
         // checkiing if the trade already exists
@@ -148,20 +160,35 @@ contract P2PEscrow is ReentrancyGuard {
             payable(msg.sender),
             _value
         );
-        emit Created(_tradeID, fees, msg.sender, _buyer, _value);
+        emit Created(
+            _tradeID,
+            fees,
+            msg.sender,
+            _buyer,
+            _value,
+            _extUniqueHash
+        );
     }
 
     /// @notice Create and fund a new escrow for token.
     /// @param _buyer The buying party
     /// @param _value The amount of the escrow, exclusive of the fee
     /// @param _token The address of the token to be used for the escrow
+    /// @param _extUniqueHash The external unique hash of the escrow
     function createTokenEscrow(
         address _buyer,
         uint256 _value,
-        address _token
+        address _token,
+        bytes32 _extUniqueHash
     ) external payable {
         bytes32 _tradeID = keccak256(
-            abi.encodePacked(block.number, msg.sender, _buyer, _value)
+            abi.encodePacked(
+                block.number,
+                msg.sender,
+                _buyer,
+                _value,
+                _extUniqueHash
+            )
         );
 
         // Require that trade does not already exist
@@ -209,7 +236,14 @@ contract P2PEscrow is ReentrancyGuard {
             payable(msg.sender),
             _value
         );
-        emit Created(_tradeID, fees, msg.sender, _buyer, _value);
+        emit Created(
+            _tradeID,
+            fees,
+            msg.sender,
+            _buyer,
+            _value,
+            _extUniqueHash
+        );
     }
 
     /// @notice Called by the favourable party for whom the order has been resolved by the arbitrator

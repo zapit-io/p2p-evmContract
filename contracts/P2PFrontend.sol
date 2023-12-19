@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
-contract P2PEscrow is ReentrancyGuard {
+contract P2PEscrowFrontend is ReentrancyGuard {
     /***********************
     +   Global settings   +
     ***********************/

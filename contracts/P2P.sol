@@ -33,8 +33,25 @@ contract P2PEscrow is ReentrancyGuard {
     uint256 private escrowCounter;
 
     /***********************
-    +  Instruction types  +
+    +  Custom Errors  +
     ***********************/
+
+    error NotAnOwner();
+    error ZeroAddress();
+    error CannotBeAContract();
+    error NotAnArbitrator();
+    error FeesOutOfRange();
+    error TradeExists();
+    error IncorrectEth(string message);
+    error TokenNotAccepted();
+    error TokenNotApproved(address _address);
+    error IncorrectTokenAmount(address _token);
+    error EscrowDoesNotExist();
+    error InvalidArbitratorSignature();
+    error InvalidSellerSignature();
+    error NotABuyer();
+    error InvalidSignatureLength();
+    error AmountHigherThanAvailable();
 
     // custom order expiration option
     // uint32 private ORDER_EXPIRATION = 4 hours;

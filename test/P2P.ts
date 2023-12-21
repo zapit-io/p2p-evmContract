@@ -149,5 +149,56 @@ describe("ZapitP2PEscrow", function () {
           })
       ).to.revertedWithCustomError(p2p, "TradeExists");
     });
+
+    it("Send wrong value to create an escrow", async function () {
+      const { p2p, buyer, ESCROW_VALUE, EXT_TRADE_RANDOM, seller } =
+        await loadFixture(deployP2PEscrow);
+
+      await expect(
+        p2p
+          .connect(seller)
+          .createEscrow(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
+            value: ESCROW_VALUE,
+          })
+      ).to.be.revertedWithCustomError(p2p, "IncorrectEth");
+    });
+  });
+
+  describe("Cancellation of an escrow", function () {
+    it("Revert if the to be request escrow-id does not exist", async function () {
+      const { p2p, buyer } = await loadFixture(createP2PEscrow);
+
+      await expect(
+        p2p.connect(buyer).buyerCancel(ethers.encodeBytes32String("123"))
+      ).to.be.revertedWithCustomError(p2p, "EscrowDoesNotExist");
+    });
+    it("Revert if not called by a buyer", async function () {
+      const { p2p, seller, TRADE_ID } = await loadFixture(createP2PEscrow);
+
+      await expect(
+        p2p.connect(seller).buyerCancel(TRADE_ID)
+      ).revertedWithCustomError(p2p, "NotABuyer");
+    });
+    it("Cancellation was successful", async function () {
+      const { p2p, TRADE_ID, buyer, seller } = await loadFixture(
+        createP2PEscrow
+      );
+
+      const provider = ethers.provider;
+
+      const prevSellerBalance = parseFloat(
+        ethers.formatEther(await provider.getBalance(seller.address))
+      );
+
+      const txData = await p2p.connect(buyer).buyerCancel(TRADE_ID);
+
+      const newSellerBalance = parseFloat(
+        ethers.formatEther(await provider.getBalance(seller.address))
+      );
+
+      await expect(txData).to.emit(p2p, "CancelledByBuyer").withArgs(TRADE_ID);
+
+      expect(newSellerBalance).to.be.greaterThan(prevSellerBalance);
+    });
   });
 });

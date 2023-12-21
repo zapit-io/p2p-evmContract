@@ -42,7 +42,7 @@ contract P2PEscrow is ReentrancyGuard {
     error NotAnArbitrator();
     error FeesOutOfRange();
     error TradeExists();
-    error IncorrectEth(string message);
+    error IncorrectEth();
     error TokenNotAccepted(address _token);
     error IncorrectTokenAmount(address _token);
     error EscrowDoesNotExist();
@@ -187,7 +187,7 @@ contract P2PEscrow is ReentrancyGuard {
         uint256 _sellerFees = (_value * fees) / (10000 * 2);
 
         if (msg.value == 0 || msg.value != (_value + _sellerFees)) {
-            revert IncorrectEth("Incorrect ETH sent");
+            revert IncorrectEth();
         }
 
         // Add the escrow to the public mapping
@@ -450,8 +450,12 @@ contract P2PEscrow is ReentrancyGuard {
     function _buyerCancel(bytes32 _tradeID) private returns (bool) {
         Escrow storage _escrow = escrows[_tradeID];
 
-        require(_escrow.exists, "Escrow does not exist");
-        require(msg.sender == _escrow.buyer, "Must be buyer");
+        if (!_escrow.exists) {
+            revert EscrowDoesNotExist();
+        }
+        if (msg.sender != _escrow.buyer) {
+            revert NotABuyer();
+        }
 
         emit CancelledByBuyer(_tradeID);
         transferMinusFees(

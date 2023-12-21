@@ -201,4 +201,61 @@ describe("ZapitP2PEscrow", function () {
       expect(newSellerBalance).to.be.greaterThan(prevSellerBalance);
     });
   });
+
+  describe("Completion of an escrow", function () {
+    it("Revert if the to be request escrow-id does not exist", async function () {
+      const { p2p, buyer, seller, TRADE_ID } = await loadFixture(
+        createP2PEscrow
+      );
+
+      const hash = await p2p.getMessageHash(TRADE_ID, buyer.address);
+      const signature = await seller.signMessage(ethers.getBytes(hash));
+
+      await expect(
+        p2p
+          .connect(seller)
+          .executeOrder(
+            ethers.encodeBytes32String("123"),
+            buyer.address,
+            signature
+          )
+      ).revertedWithCustomError(p2p, "EscrowDoesNotExist");
+    });
+    it("Revert if not called by a seller", async function () {
+      const { p2p, seller, TRADE_ID, buyer } = await loadFixture(
+        createP2PEscrow
+      );
+
+      const hash = await p2p.getMessageHash(TRADE_ID, buyer.address);
+      const signature = await buyer.signMessage(ethers.getBytes(hash));
+
+      await expect(
+        p2p.connect(seller).executeOrder(TRADE_ID, buyer.address, signature)
+      ).revertedWithCustomError(p2p, "InvalidSellerSignature");
+    });
+    it("Completion was successful", async function () {
+      const { p2p, seller, buyer, TRADE_ID } = await loadFixture(
+        createP2PEscrow
+      );
+
+      const prevBalance = parseFloat(
+        ethers.formatEther(await ethers.provider.getBalance(buyer.address))
+      );
+
+      const hash = await p2p.getMessageHash(TRADE_ID, buyer.address);
+      const signature = await seller.signMessage(ethers.getBytes(hash));
+
+      const txData = await p2p
+        .connect(seller)
+        .executeOrder(TRADE_ID, buyer.address, signature);
+
+      const newBalance = parseFloat(
+        ethers.formatEther(await ethers.provider.getBalance(buyer.address))
+      );
+
+      await expect(txData).to.emit(p2p, "TradeCompleted").withArgs(TRADE_ID);
+
+      expect(newBalance).to.be.greaterThan(prevBalance);
+    });
+  });
 });

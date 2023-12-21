@@ -343,17 +343,18 @@ contract P2PEscrow is ReentrancyGuard {
     ) external nonReentrant {
         Escrow storage _escrow = escrows[_tradeID];
 
-        require(_escrow.exists, "Escrow does not exist");
+        if (!_escrow.exists) {
+            revert EscrowDoesNotExist();
+        }
 
         // concat a message out of the tradeID and the msg.sender
         bytes32 messageHash = getMessageHash(_tradeID, _recipient);
         bytes32 signedMessageHash = getEthSignedMessageHash(messageHash);
         address _address = recoverSigner(signedMessageHash, _sig);
 
-        require(
-            _address == _escrow.seller,
-            "Signature must be from the seller"
-        );
+        if (_address != _escrow.seller) {
+            revert InvalidSellerSignature();
+        }
 
         // tranfer the funds to the msg.sender
         _escrow.exists = false;

@@ -26,6 +26,12 @@ contract P2PEscrow is ReentrancyGuard {
     // list of accepted erc20 tokens for escrow
     mapping(address => bool) public acceptedTokens;
 
+    // trade-id to escrow mapping
+    mapping(bytes32 => bytes32) public tradeIdToEscrow;
+
+    // counter of escrows
+    uint256 private escrowCounter;
+
     /***********************
     +  Instruction types  +
     ***********************/
@@ -126,9 +132,14 @@ contract P2PEscrow is ReentrancyGuard {
         uint256 _value,
         bytes32 _extUniqueHash
     ) external payable {
+        bytes32 trade = tradeIdToEscrow[_extUniqueHash];
+
+        // check if the trade already exists
+        require(trade == bytes32(0), "Trade already exists");
+
         bytes32 _tradeID = keccak256(
             abi.encodePacked(
-                block.number,
+                escrowCounter++,
                 msg.sender,
                 _buyer,
                 _value,
@@ -136,7 +147,7 @@ contract P2PEscrow is ReentrancyGuard {
             )
         );
 
-        // checkiing if the trade already exists
+        // checking if the trade already exists
         require(!escrows[_tradeID].exists, "Trade already exists");
 
         // Check transaction value against passed _value and make sure is not 0
@@ -160,6 +171,7 @@ contract P2PEscrow is ReentrancyGuard {
             payable(msg.sender),
             _value
         );
+        tradeIdToEscrow[_extUniqueHash] = _tradeID;
         emit Created(
             _tradeID,
             fees,
@@ -181,6 +193,11 @@ contract P2PEscrow is ReentrancyGuard {
         address _token,
         bytes32 _extUniqueHash
     ) external payable {
+        bytes32 trade = tradeIdToEscrow[_extUniqueHash];
+
+        // check if the trade already exists
+        require(trade == bytes32(0), "Trade already exists");
+
         bytes32 _tradeID = keccak256(
             abi.encodePacked(
                 block.number,
@@ -236,6 +253,7 @@ contract P2PEscrow is ReentrancyGuard {
             payable(msg.sender),
             _value
         );
+        tradeIdToEscrow[_extUniqueHash] = _tradeID;
         emit Created(
             _tradeID,
             fees,

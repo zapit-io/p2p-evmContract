@@ -301,17 +301,19 @@ contract P2PEscrow is ReentrancyGuard {
         bytes memory _sig
     ) external nonReentrant {
         Escrow storage _escrow = escrows[_tradeID];
-        require(_escrow.exists, "Escrow does not exist");
+
+        if (!_escrow.exists) {
+            revert EscrowDoesNotExist();
+        }
 
         // concat a message out of the tradeID and the msg.sender
         bytes32 messageHash = getMessageHash(_tradeID, msg.sender);
         bytes32 signedMessageHash = getEthSignedMessageHash(messageHash);
         address _signature = recoverSigner(signedMessageHash, _sig);
 
-        require(
-            _signature == arbitrator,
-            "Signature must be from the arbitrator"
-        );
+        if (_signature != arbitrator) {
+            revert InvalidArbitratorSignature();
+        }
 
         /**
          *   @notes
@@ -484,7 +486,9 @@ contract P2PEscrow is ReentrancyGuard {
     function splitSignature(
         bytes memory sig
     ) public pure returns (bytes32 r, bytes32 s, uint8 v) {
-        require(sig.length == 65, "invalid signature length");
+        if (sig.length != 65) {
+            revert InvalidSignatureLength();
+        }
 
         assembly {
             /*
@@ -521,15 +525,14 @@ contract P2PEscrow is ReentrancyGuard {
         address _token
     ) external onlyOwner nonReentrant {
         // This check also prevents underflow
-        require(
-            _amount <= feesAvailableForWithdraw,
-            "Amount is higher than amount available"
-        );
+        if (_amount > feesAvailableForWithdraw) {
+            revert AmountHigherThanAvailable();
+        }
+
         if (_token != address(0)) {
-            require(
-                _amount <= feesAvailableForWithdrawErc20[_token],
-                "Amount is higher than amount available"
-            );
+            if (_amount > feesAvailableForWithdrawErc20[_token]) {
+                revert AmountHigherThanAvailable();
+            }
             feesAvailableForWithdrawErc20[_token] -= _amount;
             IERC20(_token).transfer(_to, _amount);
         } else {

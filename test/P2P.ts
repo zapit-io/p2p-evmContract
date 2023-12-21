@@ -258,4 +258,54 @@ describe("ZapitP2PEscrow", function () {
       expect(newBalance).to.be.greaterThan(prevBalance);
     });
   });
+
+  describe("Claiming the amounts from a disputed order", function () {
+    it("Revert if the to be request escrow-id does not exist", async function () {
+      const { p2p, buyer, deployer, TRADE_ID } = await loadFixture(
+        createP2PEscrow
+      );
+
+      const hash = await p2p.getMessageHash(TRADE_ID, buyer.address);
+      const arbitratorSignature = await deployer.signMessage(
+        ethers.getBytes(hash)
+      );
+
+      await expect(
+        p2p
+          .connect(buyer)
+          .claimDisputedOrder(
+            ethers.encodeBytes32String("123"),
+            arbitratorSignature
+          )
+      ).revertedWithCustomError(p2p, "EscrowDoesNotExist");
+    });
+    it("Revert if the signature was not signed by the arbitrator", async function () {
+      const { p2p, buyer, TRADE_ID } = await loadFixture(createP2PEscrow);
+
+      const hash = await p2p.getMessageHash(TRADE_ID, buyer.address);
+      const arbitratorSignature = await buyer.signMessage(
+        ethers.getBytes(hash)
+      );
+
+      await expect(
+        p2p.connect(buyer).claimDisputedOrder(TRADE_ID, arbitratorSignature)
+      ).revertedWithCustomError(p2p, "InvalidArbitratorSignature");
+    });
+    it("Claiming the disputed order is working", async function () {
+      const { p2p, buyer, arbitrator, TRADE_ID } = await loadFixture(
+        createP2PEscrow
+      );
+
+      const hash = await p2p.getMessageHash(TRADE_ID, buyer.address);
+      const arbitratorSignature = await arbitrator.signMessage(
+        ethers.getBytes(hash)
+      );
+
+      await expect(
+        p2p.connect(buyer).claimDisputedOrder(TRADE_ID, arbitratorSignature)
+      )
+        .to.emit(p2p, "DisputeClaimed")
+        .withArgs(TRADE_ID);
+    });
+  });
 });

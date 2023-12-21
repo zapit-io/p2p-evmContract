@@ -19,7 +19,7 @@ describe("ZapitP2PEscrow", function () {
       `${ETHERS_VALUE + (ETHERS_VALUE * FEES) / (10000 * 2)}`
     ); //  calculated after seller sent their 50% of the fees
     const TRADE_ID =
-      "0x8920755501b54087d26177c51b1956d5ba880200a420193f6854d7d0f97c38f6";
+      "0x808c20ef09149650b29fbae1cc74c8cae292164efe69529e23749d3642bcff7a"; // replace this value the hardhat value that's returned from the contract (it'll be dynamic everytime for tests);
 
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("123");
 
@@ -104,17 +104,51 @@ describe("ZapitP2PEscrow", function () {
 
   describe("Creation of escrow", function () {
     it("Creating a new escrow and emits and event", async function () {
-      const { p2p, deployer, FEES } = await loadFixture(deployP2PEscrow);
+      const {
+        p2p,
+        buyer,
+        ESCROW_VALUE,
+        ESCROW_TOTAL_VALUE,
+        EXT_TRADE_RANDOM,
+        seller,
+        TRADE_ID,
+      } = await loadFixture(deployP2PEscrow);
 
-      const [owner, arbitrator, fees] = await Promise.all([
-        p2p.owner(),
-        p2p.arbitrator(),
-        p2p.fees(),
-      ]);
+      await expect(
+        p2p
+          .connect(seller)
+          .createEscrow(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
+            value: ESCROW_TOTAL_VALUE,
+          })
+      )
+        .to.emit(p2p, "Created")
+        .withArgs(
+          TRADE_ID,
+          100,
+          seller.address,
+          buyer.address,
+          ESCROW_VALUE,
+          EXT_TRADE_RANDOM
+        );
+    });
+    it("Creating an already existing escrow in the contract", async function () {
+      const {
+        p2p,
+        buyer,
+        ESCROW_VALUE,
+        ESCROW_TOTAL_VALUE,
+        EXT_TRADE_RANDOM,
+        seller,
+        TRADE_ID,
+      } = await loadFixture(createP2PEscrow);
 
-      expect(owner).to.be.equal(deployer.address);
-      expect(arbitrator).to.be.equal(deployer.address);
-      expect(fees).to.be.equal(FEES);
+      await expect(
+        p2p
+          .connect(seller)
+          .createEscrow(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
+            value: ESCROW_TOTAL_VALUE,
+          })
+      ).to.revertedWithCustomError(p2p, "TradeExists");
     });
   });
 });

@@ -7,10 +7,6 @@ async function main() {
   // verify contract on polygonscan on mumbai
 
   console.log(`ZapitP2PEscrow deployed to ${p2pEscrow.target}`);
-
-  // const signature = await ethers.deployContract("Signature");
-  // await signature.waitForDeployment();
-  // console.log(`Signature deployed to ${signature.target}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

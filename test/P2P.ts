@@ -139,7 +139,6 @@ describe("ZapitP2PEscrow", function () {
         ESCROW_TOTAL_VALUE,
         EXT_TRADE_RANDOM,
         seller,
-        TRADE_ID,
       } = await loadFixture(createP2PEscrow);
 
       await expect(

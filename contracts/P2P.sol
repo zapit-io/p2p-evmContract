@@ -102,13 +102,17 @@ contract P2PEscrow is ReentrancyGuard {
     mapping(bytes32 => Escrow) public escrows;
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Must be owner");
+        if (msg.sender != owner) {
+            revert NotAnOwner();
+        }
         _;
     }
 
     // modifier for checking a zero address
     modifier nonZeroAddress(address _address) {
-        require(_address != address(0), "Address cannot be zero");
+        if (_address == address(0)) {
+            revert ZeroAddress();
+        }
         _;
     }
 
@@ -119,12 +123,16 @@ contract P2PEscrow is ReentrancyGuard {
         assembly {
             size := extcodesize(_address)
         }
-        require(size == 0, "Address cannot be a contract");
+        if (size > 0) {
+            revert CannotBeAContract();
+        }
         _;
     }
 
     modifier onlyArbitrator() {
-        require(msg.sender == arbitrator, "Must be arbitrator");
+        if (msg.sender != arbitrator) {
+            revert NotAnArbitrator();
+        }
         _;
     }
 
@@ -132,7 +140,9 @@ contract P2PEscrow is ReentrancyGuard {
     constructor(uint16 _fees) {
         owner = msg.sender;
         arbitrator = msg.sender;
-        require(_fees < 10000, "Fees must be less than 10000");
+        if (_fees > 10000) {
+            revert FeesOutOfRange();
+        }
         fees = _fees; // stored in terms of basis-points
     }
 
@@ -152,7 +162,9 @@ contract P2PEscrow is ReentrancyGuard {
         bytes32 trade = tradeIdToEscrow[_extUniqueHash];
 
         // check if the trade already exists
-        require(trade == bytes32(0), "Trade already exists");
+        if (trade != bytes32(0)) {
+            revert TradeExists();
+        }
 
         bytes32 _tradeID = keccak256(
             abi.encodePacked(
@@ -165,7 +177,9 @@ contract P2PEscrow is ReentrancyGuard {
         );
 
         // checking if the trade already exists
-        require(!escrows[_tradeID].exists, "Trade already exists");
+        if (escrows[_tradeID].exists) {
+            revert TradeExists();
+        }
 
         // Check transaction value against passed _value and make sure is not 0
         /**
@@ -173,10 +187,9 @@ contract P2PEscrow is ReentrancyGuard {
          */
         uint256 _sellerFees = (_value * fees) / (10000 * 2);
 
-        require(
-            msg.value == (_value + _sellerFees) && msg.value > 0,
-            "Incorrect ETH sent"
-        );
+        if (msg.value == 0 || msg.value != (_value + _sellerFees)) {
+            revert IncorrectEth("Incorrect ETH sent");
+        }
 
         // Add the escrow to the public mapping
         escrows[_tradeID] = Escrow(

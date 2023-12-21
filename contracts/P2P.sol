@@ -43,8 +43,7 @@ contract P2PEscrow is ReentrancyGuard {
     error FeesOutOfRange();
     error TradeExists();
     error IncorrectEth(string message);
-    error TokenNotAccepted();
-    error TokenNotApproved(address _address);
+    error TokenNotAccepted(address _token);
     error IncorrectTokenAmount(address _token);
     error EscrowDoesNotExist();
     error InvalidArbitratorSignature();
@@ -226,7 +225,9 @@ contract P2PEscrow is ReentrancyGuard {
         bytes32 trade = tradeIdToEscrow[_extUniqueHash];
 
         // check if the trade already exists
-        require(trade == bytes32(0), "Trade already exists");
+        if (trade != bytes32(0)) {
+            revert TradeExists();
+        }
 
         bytes32 _tradeID = keccak256(
             abi.encodePacked(
@@ -238,18 +239,15 @@ contract P2PEscrow is ReentrancyGuard {
             )
         );
 
-        // Require that trade does not already exist
-        require(!escrows[_tradeID].exists, "Trade already exists");
+        // checking if the trade already exists
+        if (escrows[_tradeID].exists) {
+            revert TradeExists();
+        }
+
         // check if the token is accepted
-        require(
-            acceptedTokens[_token] && _token != address(0),
-            "Token not accepted"
-        );
-
-        // Require that trade does not already exist
-        require(!escrows[_tradeID].exists, "Trade already exists");
-
-        // check if the token is not erc20 and check if the token is accepted or not
+        if (!acceptedTokens[_token]) {
+            revert TokenNotAccepted(_token);
+        }
 
         uint256 prevTokenBalance = IERC20(_token).balanceOf(address(this));
 
@@ -268,10 +266,11 @@ contract P2PEscrow is ReentrancyGuard {
          */
         uint256 _sellerFees = (_value * fees) / (10000 * 2);
 
-        require(
-            (currentTokenBalance - prevTokenBalance) == (_value + _sellerFees),
-            "Incorrect Token value"
-        );
+        if (
+            (currentTokenBalance - prevTokenBalance) != (_value + _sellerFees)
+        ) {
+            revert IncorrectTokenAmount(_token);
+        }
 
         // Add the escrow to the public mapping
         escrows[_tradeID] = Escrow(

@@ -93,7 +93,7 @@ describe("ZapitP2PEscrow", function () {
       const [owner, arbitrator, fees] = await Promise.all([
         p2p.owner(),
         p2p.arbitrator(),
-        p2p.fees(),
+        p2p.feeBP(),
       ]);
 
       expect(owner).to.be.equal(deployer.address);
@@ -124,10 +124,10 @@ describe("ZapitP2PEscrow", function () {
         .to.emit(p2p, "Created")
         .withArgs(
           TRADE_ID,
-          100,
           seller.address,
           buyer.address,
           ESCROW_VALUE,
+          100,
           EXT_TRADE_RANDOM
         );
     });

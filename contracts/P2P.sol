@@ -11,26 +11,47 @@ contract P2PEscrow is ReentrancyGuard {
     +   Global settings   +
     ***********************/
 
+    struct Escrow {
+        // So we know the escrow exists
+        bool exists;
+        // storing the timestamp when the escrow was created
+        uint256 createdAt;
+        // fees based on bps
+        uint16 _fee;
+        // token address
+        address token; // 0 if ETH
+        // address of the buyer
+        address payable buyer;
+        // address of the seller
+        address payable seller;
+        // value of the escrow
+        uint256 value;
+    }
+
     // Address of the arbitrator
     address public arbitrator;
     // Address of the owner (who can withdraw collected fees)
     address public owner;
-    uint16 public fees; // fees for zapit in bps
+    
+    // Fee Basis Points: fees for owner inclusive of bases points
+    uint16 public feeBP; 
 
     // Cumulative balance of collected fees
     uint256 public feesAvailableForWithdraw;
-
     // Cumulative balance for collected fees for erc20 tokens
     mapping(address => uint256) public feesAvailableForWithdrawErc20;
 
-    // list of accepted erc20 tokens for escrow
+    // List of accepted ERC20 tokens for escrow
     mapping(address => bool) public acceptedTokens;
 
-    // trade-id to escrow mapping
-    mapping(bytes32 => bytes32) public tradeIdToEscrow;
+    // External identifier to escrow mapping (external identifier could be a trade id)
+    mapping(bytes32 => bytes32) public extIdentifierToEscrow;
 
-    // counter of escrows
+    // Counter of escrows, this counter gets incremented by 1 each time a new escrow is created
     uint256 private escrowCounter;
+
+    // Mapping of active trades. The key here is a hash of the trade proprties
+    mapping(bytes32 => Escrow) public escrows;
 
     /***********************
     +  Custom Errors  +
@@ -52,62 +73,75 @@ contract P2PEscrow is ReentrancyGuard {
     error InvalidSignatureLength();
     error AmountHigherThanAvailable();
 
-    // custom order expiration option
-    // uint32 private ORDER_EXPIRATION = 4 hours;
-
     /***********************
     +       Events        +
     ***********************/
 
+    /**
+     * @notice Event: Created, triggered when the escrow is created by the seller
+     * _tradeHash               Hash of the escrow
+     * _seller                  Seller of the escrow
+     * _buyer                   Buyer of the escrow 
+     * _value                   Value of the trade either in native currency or ERC20 token (Excluding fee)
+     * _feeBP                   The fee setting for the time when trade was created
+     * _extUniqueIdentifier     External identifier that references the escrow
+     */
     event Created(
         bytes32 indexed _tradeHash,
-        uint16 _fees,
         address indexed _seller,
         address indexed _buyer,
         uint256 _value,
-        bytes32 _extUniqueHash
+        uint16 _feeBP,
+        bytes32 _extUniqueIdentifier
     );
+    /**
+     * @notice Event: CancelledByBuyer, triggered when the trade is cancelled by the buyer
+     * _tradeHash               Hash of the escrow
+     */
     event CancelledByBuyer(bytes32 indexed _tradeHash);
-    event Released(bytes32 indexed _tradeHash);
+    /**
+     * @notice Event: DisputeClaimed, triggered when the disputed trade is resolved with the help of arbiter
+     * and the winning party claims the funds
+     * _tradeHash               Hash of the escrow
+     */
     event DisputeClaimed(bytes32 indexed _tradeHash);
+    /**
+     * @notice Event: TradeCompleted, triggered when the trade is successfully completed
+     * _tradeHash               Hash of the escrow
+     */
     event TradeCompleted(bytes32 indexed _tradeHash);
+    /**
+     * @notice Event: ArbitratorChanged, triggered when arbitrator is changed
+     * _tradeHash               Hash of the escrow
+     */
     event ArbitratorChanged(address indexed _newArbitrator);
+    /**
+     * @notice Event: OwnerChanged, triggered when owner is changed
+     * _tradeHash               Hash of the escrow
+     */
     event OwnerChanged(address indexed _newOwner);
+    /**
+     * @notice Event: FeesChanged, triggered when feeBP is changed
+     * _tradeHash               Hash of the escrow
+     */
     event FeesChanged(uint16 indexed _newFees);
+    /**
+     * @notice Event: FeeWithdrawn, triggered when fee is withdrawn
+     * _tradeHash               Hash of the escrow
+     * _amount                  Amount that is withdrawn
+     * _token                   Native or token currency withdrawn
+     */
     event FeeWithdrawn(
         address indexed _to,
         uint256 _amount,
         address indexed _token
     );
 
-    struct Escrow {
-        // So we know the escrow exists
-        bool exists;
-        // storing the timestamp when the escrow was created
-        uint256 createdAt;
-        // fees based on bps
-        uint16 _fee;
-        // token address
-        address token; // 0 if ETH
-        // address of the buyer
-        address payable buyer;
-        // address of the seller
-        address payable seller;
-        // value of the escrow
-        uint256 value;
-    }
+    /***************************
+    +       Modifiers        +
+    ****************************/
 
-    // Mapping of active trades. The key here is a hash of the trade proprties
-    mapping(bytes32 => Escrow) public escrows;
-
-    modifier onlyOwner() {
-        if (msg.sender != owner) {
-            revert NotAnOwner();
-        }
-        _;
-    }
-
-    // modifier for checking a zero address
+    // Modifier for checking a zero address
     modifier nonZeroAddress(address _address) {
         if (_address == address(0)) {
             revert ZeroAddress();
@@ -115,8 +149,7 @@ contract P2PEscrow is ReentrancyGuard {
         _;
     }
 
-    // modifier for checking the address is not a contract
-
+    // Modifier for checking the address is not a contract
     modifier nonContract(address _address) {
         uint256 size;
         assembly {
@@ -128,6 +161,24 @@ contract P2PEscrow is ReentrancyGuard {
         _;
     }
 
+    // Modifier for checking the address is one of the accepted tokens
+    modifier onlyAcceptedTokens(address _address) {
+        // check if the token is accepted
+        if (!acceptedTokens[_address]) {
+            revert TokenNotAccepted(_address);
+        }
+        _;
+    }
+
+    // Modifier for checking the address is owner
+    modifier onlyOwner() {
+        if (msg.sender != owner) {
+            revert NotAnOwner();
+        }
+        _;
+    }
+
+    // Modifier for checking the address is arbitrator
     modifier onlyArbitrator() {
         if (msg.sender != arbitrator) {
             revert NotAnArbitrator();
@@ -136,13 +187,13 @@ contract P2PEscrow is ReentrancyGuard {
     }
 
     /// @notice Initialize the contract.
-    constructor(uint16 _fees) {
+    constructor(uint16 _feeBP) {
         owner = msg.sender;
         arbitrator = msg.sender;
-        if (_fees > 10000) {
+        if (_feeBP > 10000) {
             revert FeesOutOfRange();
         }
-        fees = _fees; // stored in terms of basis-points
+        feeBP = _feeBP; // stored in terms of basis-points
     }
 
     /***********************
@@ -152,15 +203,17 @@ contract P2PEscrow is ReentrancyGuard {
     /// @notice Create and fund a new escrow.
     /// @param _buyer The buying party
     /// @param _value The amount of the escrow, exclusive of the fee
-    /// @param _extUniqueHash The external unique hash of the escrow
+    /// @param _extUniqueIdentifier The external unique identifier, could be hash of the escrow
     function createEscrow(
         address _buyer,
         uint256 _value,
-        bytes32 _extUniqueHash
-    ) external payable {
-        bytes32 trade = tradeIdToEscrow[_extUniqueHash];
+        bytes32 _extUniqueIdentifier
+    ) external payable nonReentrant {
+        bytes32 trade = extIdentifierToEscrow[_extUniqueIdentifier];
 
-        // check if the trade already exists
+        // Check if the external identifier for the trade already exists
+        // This is a strick check for the enternal provided information
+        // to prevent duplicates that refer the same external identifier
         if (trade != bytes32(0)) {
             revert TradeExists();
         }
@@ -171,7 +224,7 @@ contract P2PEscrow is ReentrancyGuard {
                 msg.sender,
                 _buyer,
                 _value,
-                _extUniqueHash
+                _extUniqueIdentifier
             )
         );
 
@@ -184,7 +237,7 @@ contract P2PEscrow is ReentrancyGuard {
         /**
          @description: value + seller fees = msg.value
          */
-        uint256 _sellerFees = (_value * fees) / (10000 * 2);
+        uint256 _sellerFees = (_value * feeBP) / (10000 * 2);
 
         if (msg.value == 0 || msg.value != (_value + _sellerFees)) {
             revert IncorrectEth();
@@ -194,20 +247,20 @@ contract P2PEscrow is ReentrancyGuard {
         escrows[_tradeID] = Escrow(
             true,
             block.number,
-            fees,
+            feeBP,
             address(0),
             payable(_buyer),
             payable(msg.sender),
             _value
         );
-        tradeIdToEscrow[_extUniqueHash] = _tradeID;
+        extIdentifierToEscrow[_extUniqueIdentifier] = _tradeID;
         emit Created(
             _tradeID,
-            fees,
             msg.sender,
             _buyer,
             _value,
-            _extUniqueHash
+            feeBP,
+            _extUniqueIdentifier
         );
     }
 
@@ -215,38 +268,35 @@ contract P2PEscrow is ReentrancyGuard {
     /// @param _buyer The buying party
     /// @param _value The amount of the escrow, exclusive of the fee
     /// @param _token The address of the token to be used for the escrow
-    /// @param _extUniqueHash The external unique hash of the escrow
+    /// @param _extUniqueIdentifier The external unique identifier, could be hash of the escrow
     function createTokenEscrow(
         address _buyer,
         uint256 _value,
         address _token,
-        bytes32 _extUniqueHash
-    ) external payable {
-        bytes32 trade = tradeIdToEscrow[_extUniqueHash];
+        bytes32 _extUniqueIdentifier
+    ) external payable nonReentrant onlyAcceptedTokens(_token) {
+        bytes32 trade = extIdentifierToEscrow[_extUniqueIdentifier];
 
-        // check if the trade already exists
+        // Check if the external identifier for the trade already exists
+        // This is a strick check for the enternal provided information
+        // to prevent duplicates that refer the same external identifier
         if (trade != bytes32(0)) {
             revert TradeExists();
         }
 
         bytes32 _tradeID = keccak256(
             abi.encodePacked(
-                block.number,
+                escrowCounter++,
                 msg.sender,
                 _buyer,
                 _value,
-                _extUniqueHash
+                _extUniqueIdentifier
             )
         );
 
         // checking if the trade already exists
         if (escrows[_tradeID].exists) {
             revert TradeExists();
-        }
-
-        // check if the token is accepted
-        if (!acceptedTokens[_token]) {
-            revert TokenNotAccepted(_token);
         }
 
         uint256 prevTokenBalance = IERC20(_token).balanceOf(address(this));
@@ -264,7 +314,7 @@ contract P2PEscrow is ReentrancyGuard {
         /**
           @description value + seller fees = msg.value
          */
-        uint256 _sellerFees = (_value * fees) / (10000 * 2);
+        uint256 _sellerFees = (_value * feeBP) / (10000 * 2);
 
         if (
             (currentTokenBalance - prevTokenBalance) != (_value + _sellerFees)
@@ -276,20 +326,20 @@ contract P2PEscrow is ReentrancyGuard {
         escrows[_tradeID] = Escrow(
             true,
             block.number,
-            fees,
+            feeBP,
             _token,
             payable(_buyer),
             payable(msg.sender),
             _value
         );
-        tradeIdToEscrow[_extUniqueHash] = _tradeID;
+        extIdentifierToEscrow[_extUniqueIdentifier] = _tradeID;
         emit Created(
             _tradeID,
-            fees,
             msg.sender,
             _buyer,
             _value,
-            _extUniqueHash
+            feeBP,
+            _extUniqueIdentifier
         );
     }
 
@@ -374,7 +424,7 @@ contract P2PEscrow is ReentrancyGuard {
     ///@param _tradeID Escrow "tradeID" parameter
     ///@return bool
 
-    function buyerCancel(bytes32 _tradeID) external returns (bool) {
+    function buyerCancel(bytes32 _tradeID) external nonReentrant returns (bool) {
         return _buyerCancel(_tradeID);
     }
 
@@ -464,7 +514,7 @@ contract P2PEscrow is ReentrancyGuard {
         transferMinusFees(
             _escrow.seller,
             _escrow.value,
-            fees,
+            feeBP,
             false,
             address(0)
         );
@@ -566,7 +616,7 @@ contract P2PEscrow is ReentrancyGuard {
     /// @param _fees Fees in basis-points
     function setFees(uint16 _fees) public onlyOwner {
         require(_fees <= 10000, "Fees must be less than 10000");
-        fees = _fees; // stored in terms of basis-points
+        feeBP = _fees; // stored in terms of basis-points
         emit FeesChanged(_fees);
     }
 }

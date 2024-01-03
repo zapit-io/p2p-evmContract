@@ -62,7 +62,7 @@ describe("ZapitP2PEscrow", function () {
 
     const tx = await p2p
       .connect(seller)
-      .createEscrow(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
+      .createEscrowNative(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
         value: ESCROW_TOTAL_VALUE,
       });
 
@@ -117,7 +117,7 @@ describe("ZapitP2PEscrow", function () {
       await expect(
         p2p
           .connect(seller)
-          .createEscrow(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
+          .createEscrowNative(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
             value: ESCROW_TOTAL_VALUE,
           })
       )
@@ -144,7 +144,7 @@ describe("ZapitP2PEscrow", function () {
       await expect(
         p2p
           .connect(seller)
-          .createEscrow(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
+          .createEscrowNative(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
             value: ESCROW_TOTAL_VALUE,
           })
       ).to.revertedWithCustomError(p2p, "TradeExists");
@@ -157,7 +157,7 @@ describe("ZapitP2PEscrow", function () {
       await expect(
         p2p
           .connect(seller)
-          .createEscrow(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
+          .createEscrowNative(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
             value: ESCROW_VALUE,
           })
       ).to.be.revertedWithCustomError(p2p, "IncorrectEth");

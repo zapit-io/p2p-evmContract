@@ -1,8 +1,19 @@
-# Sample Hardhat Project
+# P2P EVM Contract
+Zapit's P2P EVM contracts
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+#### Test
+To run all the tests: `npx hardhat test`
 
-Try running some of the following tasks:
+#### Deployment
+`npx hardhat run scripts/deploy.ts --network mumbai`
+
+#### Addresses
+
+- Mumbai: `0x0`
+- Polygon: `0x0`
+- Ethereum: `0x0`
+
+#### Other commands
 
 ```shell
 npx hardhat help

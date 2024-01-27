@@ -25,8 +25,10 @@ const config: HardhatUserConfig = {
   networks: {
     mumbai: {
       url: "https://rpc-mumbai.maticvigil.com",
-      accounts: [process.env.PRIVATE_KEY!],
-    },
+      accounts: {
+        mnemonic: process.env.MNEMONIC,
+        count: 6,
+      },    },
   },
   etherscan: {
     apiKey: {

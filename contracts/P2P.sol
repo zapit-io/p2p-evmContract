@@ -3,6 +3,8 @@ pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+// import "hardhat/console.sol";
+
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
@@ -12,16 +14,18 @@ contract P2PEscrow is ReentrancyGuard {
     ***********************/
 
     struct Escrow {
+        // External identifier that references the escrow;
+        bytes32 _extUniqueIdentifier;
         // Address of the buyer
         address payable buyer;
         // Address of the seller
         address payable seller;
         // Currency address, address(0) if it's Native currency
         address currency;
-        // The timestamp when the escrow was created
-        uint256 createdAt;
         // Value of the escrow
         uint256 value;
+        // The timestamp when the escrow was created
+        uint256 createdAt;
         // Fees based on bps
         uint16 _fee;
         // To check if the escrow exists
@@ -81,30 +85,46 @@ contract P2PEscrow is ReentrancyGuard {
     /// @param _tradeHash               Hash of the escrow
     /// @param _seller                  Seller address of the escrow
     /// @param _buyer                   Buyer address of the escrow
+    /// @param _extUniqueIdentifier     External identifier that references the escrow
+    /// @param _currency                 Currency of the order, native or ERC20
     /// @param _value                   Value of the trade either in native currency or ERC20 token (Excluding fee)
     /// @param _escrowFeeBP             The contract level fee setting of the time when trade was created
-    /// @param _extUniqueIdentifier     External identifier that references the escrow
     event Created(
         bytes32 indexed _tradeHash,
         address indexed _seller,
         address indexed _buyer,
+        bytes32 _extUniqueIdentifier,
+        address _currency,
         uint256 _value,
-        uint16 _escrowFeeBP,
-        bytes32 _extUniqueIdentifier
+        uint16 _escrowFeeBP
     );
 
     /// @notice Event: CancelledByBuyer, triggered when the trade is cancelled by the buyer
     /// @param _tradeHash               Hash of the escrow
-    event CancelledByBuyer(bytes32 indexed _tradeHash);
+    /// @param _extUniqueIdentifier     External identifier that references the escrow
+    event CancelledByBuyer(
+        bytes32 indexed _tradeHash,
+        bytes32 indexed _extUniqueIdentifier
+    );
 
     /// @notice Event: DisputeClaimed, triggered when the disputed trade is resolved with the help of arbitrator
     /// and the winning party claims the funds
     /// @param _tradeHash               Hash of the escrow
-    event DisputeClaimed(bytes32 indexed _tradeHash, address _disputedFor);
+    /// @param _favourOf                Address of the party in favour of whom the dispute is resolved
+    /// @param _extUniqueIdentifier     External identifier that references the escrow
+    event DisputeClaimed(
+        bytes32 indexed _tradeHash,
+        address indexed _favourOf,
+        bytes32 indexed _extUniqueIdentifier
+    );
 
     /// @notice Event: TradeCompleted, triggered when the trade is successfully completed
     /// @param _tradeHash               Hash of the escrow
-    event TradeCompleted(bytes32 indexed _tradeHash);
+    /// @param _extUniqueIdentifier     External identifier that references the escrow
+    event TradeCompleted(
+        bytes32 indexed _tradeHash,
+        bytes32 indexed _extUniqueIdentifier
+    );
 
     /// @notice Event: ArbitratorChanged, triggered when arbitrator is changed
     /// @param _newArbitrator           Address of the new arbitrator
@@ -236,11 +256,12 @@ contract P2PEscrow is ReentrancyGuard {
 
         // Add the escrow to the public mapping
         escrows[_tradeID] = Escrow(
+            _extUniqueIdentifier,
             payable(_buyer),
             payable(msg.sender),
             address(0),
-            block.number,
             _value,
+            block.number,
             escrowFeeBP,
             true
         );
@@ -249,9 +270,10 @@ contract P2PEscrow is ReentrancyGuard {
             _tradeID,
             msg.sender,
             _buyer,
+            _extUniqueIdentifier,
+            address(0),
             _value,
-            escrowFeeBP,
-            _extUniqueIdentifier
+            escrowFeeBP
         );
     }
 
@@ -292,11 +314,12 @@ contract P2PEscrow is ReentrancyGuard {
 
         // Add the escrow to the public mapping
         escrows[_tradeID] = Escrow(
+            _extUniqueIdentifier,
             payable(_buyer),
             payable(msg.sender),
             _currency,
-            block.number,
             _value,
+            block.number,
             escrowFeeBP,
             true
         );
@@ -321,9 +344,10 @@ contract P2PEscrow is ReentrancyGuard {
             _tradeID,
             msg.sender,
             _buyer,
+            _extUniqueIdentifier,
+            _currency,
             _value,
-            escrowFeeBP,
-            _extUniqueIdentifier
+            escrowFeeBP
         );
     }
 
@@ -366,7 +390,7 @@ contract P2PEscrow is ReentrancyGuard {
             false,
             address(0)
         );
-        emit DisputeClaimed(_tradeID, msg.sender);
+        emit DisputeClaimed(_tradeID, msg.sender, _escrow._extUniqueIdentifier);
     }
 
     /// @notice Called by the seller or any one that has the access to signature for completing the order
@@ -400,7 +424,7 @@ contract P2PEscrow is ReentrancyGuard {
             false,
             address(0)
         );
-        emit TradeCompleted(_tradeID);
+        emit TradeCompleted(_tradeID, _escrow._extUniqueIdentifier);
     }
 
     ///@notice Called buy the buyer to cancel the escrow and returning the funds to the seller
@@ -427,7 +451,7 @@ contract P2PEscrow is ReentrancyGuard {
             false,
             address(0)
         );
-        emit CancelledByBuyer(_tradeID);
+        emit CancelledByBuyer(_tradeID, _escrow._extUniqueIdentifier);
         return true;
     }
 

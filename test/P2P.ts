@@ -3,7 +3,10 @@ import {
   loadFixture,
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { expect } from "chai";
+import { ZeroAddress } from "ethers";
 import { ethers } from "hardhat";
+
+const EXT_TRADE_RANDOM = ethers.encodeBytes32String("123");
 
 describe("ZapitP2PEscrow", function () {
   // We define a fixture to reuse the same setup in every test.
@@ -20,8 +23,6 @@ describe("ZapitP2PEscrow", function () {
     ); //  calculated after seller sent their 50% of the fees
     const TRADE_ID =
       "0x808c20ef09149650b29fbae1cc74c8cae292164efe69529e23749d3642bcff7a"; // replace this value the hardhat value that's returned from the contract (it'll be dynamic everytime for tests);
-
-    const EXT_TRADE_RANDOM = ethers.encodeBytes32String("123");
 
     // Contracts are deployed using the first signer/account by default
     const [deployer, arbitrator, buyer, seller] = await ethers.getSigners();
@@ -93,7 +94,7 @@ describe("ZapitP2PEscrow", function () {
       const [owner, arbitrator, fees] = await Promise.all([
         p2p.owner(),
         p2p.arbitrator(),
-        p2p.feeBP(),
+        p2p.escrowFeeBP(),
       ]);
 
       expect(owner).to.be.equal(deployer.address);
@@ -126,9 +127,10 @@ describe("ZapitP2PEscrow", function () {
           TRADE_ID,
           seller.address,
           buyer.address,
+          EXT_TRADE_RANDOM,
+          ZeroAddress,
           ESCROW_VALUE,
-          100,
-          EXT_TRADE_RANDOM
+          100
         );
     });
     it("Creating an already existing escrow in the contract", async function () {
@@ -177,7 +179,7 @@ describe("ZapitP2PEscrow", function () {
 
       await expect(
         p2p.connect(seller).buyerCancel(TRADE_ID)
-      ).revertedWithCustomError(p2p, "NotABuyer");
+      ).revertedWithCustomError(p2p, "NotBuyer");
     });
     it("Cancellation was successful", async function () {
       const { p2p, TRADE_ID, buyer, seller } = await loadFixture(
@@ -196,7 +198,7 @@ describe("ZapitP2PEscrow", function () {
         ethers.formatEther(await provider.getBalance(seller.address))
       );
 
-      await expect(txData).to.emit(p2p, "CancelledByBuyer").withArgs(TRADE_ID);
+      await expect(txData).to.emit(p2p, "CancelledByBuyer").withArgs(TRADE_ID, EXT_TRADE_RANDOM);
 
       expect(newSellerBalance).to.be.greaterThan(prevSellerBalance);
     });
@@ -214,11 +216,7 @@ describe("ZapitP2PEscrow", function () {
       await expect(
         p2p
           .connect(seller)
-          .executeOrder(
-            ethers.encodeBytes32String("123"),
-            buyer.address,
-            signature
-          )
+          .executeOrder(ethers.encodeBytes32String("123"), signature)
       ).revertedWithCustomError(p2p, "EscrowDoesNotExist");
     });
     it("Revert if not called by a seller", async function () {
@@ -230,7 +228,7 @@ describe("ZapitP2PEscrow", function () {
       const signature = await buyer.signMessage(ethers.getBytes(hash));
 
       await expect(
-        p2p.connect(seller).executeOrder(TRADE_ID, buyer.address, signature)
+        p2p.connect(seller).executeOrder(TRADE_ID, signature)
       ).revertedWithCustomError(p2p, "InvalidSellerSignature");
     });
     it("Completion was successful", async function () {
@@ -247,13 +245,13 @@ describe("ZapitP2PEscrow", function () {
 
       const txData = await p2p
         .connect(seller)
-        .executeOrder(TRADE_ID, buyer.address, signature);
+        .executeOrder(TRADE_ID, signature);
 
       const newBalance = parseFloat(
         ethers.formatEther(await ethers.provider.getBalance(buyer.address))
       );
 
-      await expect(txData).to.emit(p2p, "TradeCompleted").withArgs(TRADE_ID);
+      await expect(txData).to.emit(p2p, "TradeCompleted").withArgs(TRADE_ID, EXT_TRADE_RANDOM);
 
       expect(newBalance).to.be.greaterThan(prevBalance);
     });
@@ -305,7 +303,7 @@ describe("ZapitP2PEscrow", function () {
         p2p.connect(buyer).claimDisputedOrder(TRADE_ID, arbitratorSignature)
       )
         .to.emit(p2p, "DisputeClaimed")
-        .withArgs(TRADE_ID);
+        .withArgs(TRADE_ID, buyer.address, EXT_TRADE_RANDOM);
     });
   });
 });

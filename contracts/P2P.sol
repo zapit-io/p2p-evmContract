@@ -121,9 +121,11 @@ contract P2PEscrow is ReentrancyGuard {
     /// @notice Event: TradeCompleted, triggered when the trade is successfully completed
     /// @param _tradeHash               Hash of the escrow
     /// @param _extUniqueIdentifier     External identifier that references the escrow
+    /// @param _signature               Signature of the seller
     event TradeCompleted(
         bytes32 indexed _tradeHash,
-        bytes32 indexed _extUniqueIdentifier
+        bytes32 indexed _extUniqueIdentifier,
+        bytes _signature
     );
 
     /// @notice Event: ArbitratorChanged, triggered when arbitrator is changed
@@ -424,7 +426,7 @@ contract P2PEscrow is ReentrancyGuard {
             false,
             address(0)
         );
-        emit TradeCompleted(_tradeID, _escrow._extUniqueIdentifier);
+        emit TradeCompleted(_tradeID, _escrow._extUniqueIdentifier, _sig);
     }
 
     ///@notice Called buy the buyer to cancel the escrow and returning the funds to the seller

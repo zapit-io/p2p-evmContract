@@ -20,7 +20,7 @@ Testnet
 
 #### Deployed Addresses
 
-- Mumbai: `0x1658dd2E903acc32400A88a40e7e5FB7267C36a9`
+- Mumbai: `0xe51f9762578DBD17f09D251Be50797CAF6F622d2`
 - Polygon: `0x0`
 - Ethereum: `0x0`
 

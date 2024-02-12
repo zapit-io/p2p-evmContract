@@ -29,6 +29,9 @@ describe("ZapitP2PEscrow", function () {
 
     const p2p = await ethers.deployContract("P2PEscrow", [FEES]);
 
+    // @ts-ignore
+    console.log("buyer: ", buyer.publicKey)
+
     return {
       p2p,
       deployer,

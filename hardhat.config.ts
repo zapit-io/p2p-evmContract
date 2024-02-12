@@ -24,11 +24,14 @@ const config: HardhatUserConfig = {
   },
   networks: {
     mumbai: {
-      url: "https://rpc-mumbai.maticvigil.com",
+      url: `https://polygon-mumbai.g.alchemy.com/v2/ji7Gf_GEBEgvLHWomaRf-Y1UPvIj2o1i`,
+      chainId: 80001,
+      // url: "https://rpc-mumbai.maticvigil.com",
       accounts: {
         mnemonic: process.env.MNEMONIC,
         count: 6,
-      },    },
+      },
+    },
   },
   etherscan: {
     apiKey: {

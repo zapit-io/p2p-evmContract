@@ -112,10 +112,12 @@ contract P2PEscrow is ReentrancyGuard {
     /// @param _tradeHash               Hash of the escrow
     /// @param _favourOf                Address of the party in favour of whom the dispute is resolved
     /// @param _extUniqueIdentifier     External identifier that references the escrow
+    /// @param _signature               Signature of the arbitrator
     event DisputeClaimed(
         bytes32 indexed _tradeHash,
         address indexed _favourOf,
-        bytes32 indexed _extUniqueIdentifier
+        bytes32 indexed _extUniqueIdentifier,
+        bytes _signature
     );
 
     /// @notice Event: TradeCompleted, triggered when the trade is successfully completed
@@ -169,6 +171,10 @@ contract P2PEscrow is ReentrancyGuard {
             size := extcodesize(_address)
         }
         if (size > 0) {
+            revert CannotBeAContract();
+        }
+
+        if(msg.sender != tx.origin){
             revert CannotBeAContract();
         }
         _;
@@ -392,7 +398,7 @@ contract P2PEscrow is ReentrancyGuard {
             false,
             address(0)
         );
-        emit DisputeClaimed(_tradeID, msg.sender, _escrow._extUniqueIdentifier);
+        emit DisputeClaimed(_tradeID, msg.sender, _escrow._extUniqueIdentifier, _sig);
     }
 
     /// @notice Called by the seller or any one that has the access to signature for completing the order

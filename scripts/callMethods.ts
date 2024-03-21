@@ -1,24 +1,37 @@
 import { ethers } from "hardhat";
 import { P2PEscrow } from "../typechain-types";
+import { ZeroAddress } from "ethers";
 
 // Mumbai
 const deployedAddress = '0x01e6fd9b1bcb3451Ce121e479CA62B1b6aE3200D'
+
+// Polygon
+// const deployedAddress = '0xF564D03eE63b79AB41653030C090582ebfFf887E'
+
 
 async function getOwner(contract: P2PEscrow) {
   return await contract.owner()
 }
 
+async function setArbitrator(contract: P2PEscrow) {
+  return await contract.setArbitrator('0xA53E13f5724DC9b6F4a576089Fa669de68F24D1D')
+}
+
 async function getArbitrator(contract: P2PEscrow) {
-  return await contract.arbitrator()
+  const arbitrator = await contract.arbitrator()
+  console.log(arbitrator)
 }
 
 async function escrowFee(contract: P2PEscrow) {
   return await contract.escrowFeeBP()
 }
 
-async function signatureGeneration(contract: P2PEscrow) {
+async function signatureGeneration() {
   const accounts = await ethers.getSigners()
   console.log(accounts[0].address)
+
+  return
+
   const signer = accounts[0]
 
   const MESSAGE = '65ca00dd2775f0503fc59eaf'
@@ -95,7 +108,7 @@ async function executeOrder(contract: P2PEscrow) {
   // This will be the mongoDB id based of present architecture of zapit
   // const EXT_TRADE_RANDOM = ethers.encodeBytes32String("65ca00dd2775f0503fc59eaf");
 
-  const tradeId = '0xae7bec0a1aaf6f599ddbcfcfcf8ec05f3caa89182aeb74e15f8fc2b06fccd246'
+  const tradeId = '0x04faeff11fe93c390df89fc32cf9ac05b35a9e46a247b71ca0e2810c7f62cba9'
 
   const esc = await contract.escrows(tradeId)
   console.log(esc)
@@ -116,6 +129,35 @@ async function executeOrder(contract: P2PEscrow) {
 
 }
 
+
+async function createEscrowToken(contract: P2PEscrow) {
+
+  // const [buyer] = await ethers.getSigners();
+  // const buyerAddress = buyer.address
+  const buyerAddress = '0x4f7b8f0ecf10407fbf318feb9e9e886d1201fd9d'
+
+  const FEES = 100; // 1%
+  const ETHERS_VALUE = 0.0001;
+  const ESCROW_VALUE = ethers.parseEther(ETHERS_VALUE.toString());
+  const ESCROW_TOTAL_VALUE = ethers.parseEther(
+    `${ETHERS_VALUE + (ETHERS_VALUE * FEES) / (10000 * 2)}`
+  ); //  calculated after seller sent their 50% of the fees
+
+  // This will be the mongoDB id based of present architecture of zapit
+  const EXT_TRADE_RANDOM = ethers.encodeBytes32String("65e1943c7d200aff96ae5348");
+
+  console.log('EXT_TRADE_RANDOM: ', EXT_TRADE_RANDOM)
+
+  const result = await contract.createEscrowERC20(
+    buyerAddress,
+    ESCROW_VALUE,
+    '0x0F73cc99dE9bF6657C46B55fD666b82FcB9dbD2C',
+    EXT_TRADE_RANDOM
+  )
+
+  console.log(result)
+}
+
 async function createEscrow(contract: P2PEscrow) {
 
   // const [buyer] = await ethers.getSigners();
@@ -130,7 +172,7 @@ async function createEscrow(contract: P2PEscrow) {
   ); //  calculated after seller sent their 50% of the fees
 
   // This will be the mongoDB id based of present architecture of zapit
-  const EXT_TRADE_RANDOM = ethers.encodeBytes32String("65d474b1ef41be790d9806bb");
+  const EXT_TRADE_RANDOM = ethers.encodeBytes32String("65e0d3cb0b1f3229153b9f9c");
 
   console.log('EXT_TRADE_RANDOM: ', EXT_TRADE_RANDOM)
 
@@ -139,6 +181,17 @@ async function createEscrow(contract: P2PEscrow) {
   })
 
   console.log(result)
+}
+
+async function whitelistCurrency(contract: P2PEscrow) {
+  // const USDT = '0xc2132d05d31c914a87c6611c10748aeb04b58e8f' // MAINET
+  const USDT = '0x0F73cc99dE9bF6657C46B55fD666b82FcB9dbD2C' // TESTNET
+
+  const res = await contract.whitelistedCurrencies(ZeroAddress)
+  console.log(res)
+
+  await contract.setWhitelistedCurrencies(ZeroAddress, true)
+  // await contract.setWhitelistedCurrencies(USDT, true)
 }
 
 async function main() {
@@ -154,10 +207,17 @@ async function main() {
   // const [account1, account2, account3, account4] = await ethers.getSigners();
   // console.log(account1.address, account2.address, account3.address, account4.address)
 
+  whitelistCurrency(contract)
+
+  // await getFee(contract)
+
+  // await getArbitrator(contract)
+  // await setArbitrator(contract)
   // await signatureGeneration()
 
-
   // await createEscrow(contract)
+
+  // await createEscrowToken(contract)
   // await executeOrder(contract)
   // await cancelOrder(contract)
   // await claimDisputed(contract)

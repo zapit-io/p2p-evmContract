@@ -1,0 +1,56 @@
+const { ethers } = require('hardhat')
+const { getSelectors, FacetCutAction } = require('./libraries/diamond.js')
+
+async function deployFacets(params) {
+
+  let diamondAddr = params.diamondAddr
+  let diamondInitAddr = params.diamondInitAddr
+
+  // deploy facets
+  console.log('')
+  console.log('Deploying facets')
+  const FacetNames = [
+    'AdminFacet'
+  ]
+
+  const cut = []
+  for (const FacetName of FacetNames) {
+    // console.log(FacetName)
+    const Facet = await ethers.getContractFactory(FacetName)
+    const facet = await Facet.deploy()
+    await facet.deployed()
+
+    // console.log(`${FacetName} deployed: ${facet.address}`)
+    cut.push({
+      facetAddress: facet.address,
+      action: FacetCutAction.Add,
+      functionSelectors: getSelectors(facet)
+    })
+  }
+
+  try {
+    const diamondInit = await ethers.getContractAt('DiamondInit', diamondInitAddr)
+    const accounts = await ethers.getSigners()
+    const feeAddress = accounts[3].address
+
+    // call to init function
+    let functionCall = diamondInit.interface.encodeFunctionData(
+      'init',
+      [feeAddress, 100]
+    )
+
+    const diamondCutFacet = await ethers.getContractAt('DiamondCutFacet', diamondAddr)
+
+    const result = await diamondCutFacet.diamondCut(
+      cut,
+      diamondInit.address,
+      functionCall
+    )
+    console.log('Upgrade transaction hash: ' + result.hash)
+    return result
+  } catch (e) {
+    console.log("Error: ", e)
+  }
+}
+
+exports.deployFacets = deployFacets

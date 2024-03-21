@@ -23,6 +23,15 @@ const config: HardhatUserConfig = {
     gasPrice: 21,
   },
   networks: {
+    polygon: {
+      // url: `https://polygon-mainnet.g.alchemy.com/v2/dO9QKkdy0B2nQ4DZVVal7aERxt0kKEUW`,
+      url: `https://polygon-mainnet.g.alchemy.com/v2/9OBY09nGJOsrK1JzrpfPK2JsV8oIQVup`,
+      chainId: 137,
+      accounts: {
+        mnemonic: process.env.MNEMONIC,
+        count: 6,
+      },
+    },
     mumbai: {
       url: `https://polygon-mumbai.g.alchemy.com/v2/ji7Gf_GEBEgvLHWomaRf-Y1UPvIj2o1i`,
       chainId: 80001,

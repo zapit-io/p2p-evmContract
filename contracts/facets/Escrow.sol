@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
-
+pragma solidity ^0.8.4;
 import "../shared/interfaces/IERC20.sol";
 import {
   AppStorage,
@@ -8,8 +7,8 @@ import {
   LibEvents,
   Modifiers,
   Escrow
-} from "../libraries/LibAppStorage.sol";
-// import "hardhat/console.sol";
+} from "../shared/libraries/LibAppStorage.sol";
+import { Signature } from "../shared/libraries/Signature.sol";
 
 
 error NotAnOwner();
@@ -25,8 +24,8 @@ error EscrowDoesNotExist();
 error InvalidArbitratorSignature();
 error InvalidSellerSignature();
 error NotBuyer();
-error InvalidSignatureLength();
 error AmountHigherThanAvailable();
+
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
@@ -193,9 +192,9 @@ contract P2PEscrow is Modifiers {
 			}
 
 			// Concat a message out of the tradeID and the msg.sender
-			bytes32 messageHash = getMessageHash(_tradeID, msg.sender);
-			bytes32 signedMessageHash = getEthSignedMessageHash(messageHash);
-			address _signatory = recoverSigner(signedMessageHash, _sig);
+			bytes32 messageHash = Signature.getMessageHash(_tradeID, msg.sender);
+			bytes32 signedMessageHash = Signature.getEthSignedMessageHash(messageHash);
+			address _signatory = Signature.recoverSigner(signedMessageHash, _sig);
 
 			if (_signatory != ds.arbitrator) {
 					revert InvalidArbitratorSignature();
@@ -236,9 +235,9 @@ contract P2PEscrow is Modifiers {
 			}
 
 			// concat a message out of the tradeID and the msg.sender
-			bytes32 messageHash = getMessageHash(_tradeID, _escrow.buyer);
-			bytes32 signedMessageHash = getEthSignedMessageHash(messageHash);
-			address _signatory = recoverSigner(signedMessageHash, _sig);
+			bytes32 messageHash = Signature.getMessageHash(_tradeID, _escrow.buyer);
+			bytes32 signedMessageHash = Signature.getEthSignedMessageHash(messageHash);
+			address _signatory = Signature.recoverSigner(signedMessageHash, _sig);
 
 			if (_signatory != _escrow.seller) {
 					revert InvalidSellerSignature();
@@ -285,39 +284,6 @@ contract P2PEscrow is Modifiers {
 			return true;
 	}
 
-	/***********************
-	+   Util-Functions   +
-	***********************/
-
-	/// @notice Getting a message-hash
-	/// @param _message Message that was signed
-	/// @param recipient Recipient address
-	/// @return bytes32 Message hash
-	function getMessageHash(
-			bytes32 _message,
-			address recipient
-	) public pure returns (bytes32) {
-			return keccak256(abi.encodePacked(_message, recipient));
-	}
-
-	/// @notice Creating the signed message hash of a message-hash
-	/// @param _messageHash Message hash
-	function getEthSignedMessageHash(
-			bytes32 _messageHash
-	) public pure returns (bytes32) {
-			/*
-			Signature is produced by signing a keccak256 hash with the following format:
-			"\x19Ethereum Signed Message\n" + len(msg) + msg
-			*/
-			return
-					keccak256(
-							abi.encodePacked(
-									"\x19Ethereum Signed Message:\n32",
-									_messageHash
-							)
-					);
-	}
-
 	/// @notice Transfer the value of an escrow, minus the fees
 	/// @param _to Recipient address
 	/// @param _value Value of the transfer
@@ -353,43 +319,4 @@ contract P2PEscrow is Modifiers {
 			}
 	}
 
-	/// @notice Recover the address of the signer of a message.
-	/// @param _ethSignedMessageHash The hash of the signed message
-	/// @return address
-	function recoverSigner(
-			bytes32 _ethSignedMessageHash,
-			bytes memory _signature
-	) public pure returns (address) {
-			(bytes32 r, bytes32 s, uint8 v) = splitSignature(_signature);
-
-			return ecrecover(_ethSignedMessageHash, v, r, s);
-	}
-
-	function splitSignature(
-			bytes memory sig
-	) public pure returns (bytes32 r, bytes32 s, uint8 v) {
-			if (sig.length != 65) {
-					revert InvalidSignatureLength();
-			}
-
-			assembly {
-					/*
-					First 32 bytes stores the length of the signature
-
-					add(sig, 32) = pointer of sig + 32
-					effectively, skips first 32 bytes of signature
-
-					mload(p) loads next 32 bytes starting at the memory address p into memory
-					*/
-
-					// first 32 bytes, after the length prefix
-					r := mload(add(sig, 32))
-					// second 32 bytes
-					s := mload(add(sig, 64))
-					// final byte (first byte of the next 32 bytes)
-					v := byte(0, mload(add(sig, 96)))
-			}
-
-			// implicitly return (r, s, v)
-	}
 }

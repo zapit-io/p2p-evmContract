@@ -2,7 +2,7 @@
 /* eslint prefer-const: "off" */
 
 const { getSelectors, FacetCutAction } = require('./libraries/diamond.js')
-const diamond = require('../scripts/helpers');
+const diamond = require('./helpers');
 
 
 async function main() {
@@ -12,15 +12,16 @@ async function main() {
   // deploy DiamondCutFacet
   const DiamondCutFacet = await ethers.getContractFactory('DiamondCutFacet')
   const diamondCutFacet = await DiamondCutFacet.deploy()
+
   await diamondCutFacet.deployed()
-  console.log('DiamondCutFacet deployed:', diamondCutFacet.address)
+  console.log('DiamondCutFacet deployed:', await diamondCutFacet.address)
 
   // deploy Diamond
   const Diamond = await ethers.getContractFactory('Diamond')
   // const diamond = await Diamond.deploy(contractOwner.address, diamondCutFacet.address)
-  const diamond = await Diamond.deploy(contractOwner.address)
+  const diamond = await Diamond.deploy(await contractOwner.address)
   await diamond.deployed()
-  console.log('Diamond deployed:', diamond.address)
+  console.log('Diamond deployed:', await diamond.address)
 
   // deploy DiamondInit
   // DiamondInit provides a function that is called when the diamond is upgraded to initialize state variables
@@ -28,11 +29,11 @@ async function main() {
   const DiamondInit = await ethers.getContractFactory('DiamondInit')
   const diamondInit = await DiamondInit.deploy()
   await diamondInit.deployed()
-  console.log('DiamondInit deployed:', diamondInit.address)
+  console.log('DiamondInit deployed:', await diamondInit.address)
 
   return {
-    'diamondAddr': diamond.address,
-    'diamondInitAddr': diamondInit.address
+    'diamondAddr': await diamond.address,
+    'diamondInitAddr': await diamondInit.address
   }
 }
 

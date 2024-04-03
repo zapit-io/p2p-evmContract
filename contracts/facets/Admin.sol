@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.4;
 
 import {
   AppStorage,
   LibAppStorage,
   Modifiers,
   LibEvents
-  } from "../libraries/LibAppStorage.sol";
+  } from "../shared/libraries/LibAppStorage.sol";
 import {LibDiamond} from "../shared/libraries/LibDiamond.sol";
-import {PausableStorage} from "../libraries/LibAppStorage.sol";
+import {PausableStorage} from "../shared/libraries/LibAppStorage.sol";
 
 
 /// @title Zapit P2P Admin Contract
@@ -66,10 +66,20 @@ contract AdminFacet is Modifiers {
     emit LibEvents.FeesChanged(_fees);
   }
 
+  ///@notice Get the fee address of the marketplace
+  function getFeeAddress() external view returns (address) {
+      return s.feeAddress;
+  }
+
   /// @notice Set the fee address of the marketplace
   /// @param feeAddress The address that will get the fee charged per order
   function setFeeAddress(address feeAddress) external onlyOwner {
     s.feeAddress = feeAddress;
     emit LibEvents.FeeAddressChanged(feeAddress);
+  }
+
+  /// @notice Returns if pause state of the contract
+  function paused() external view returns (bool){
+    return PausableStorage.layout()._paused;
   }
 }

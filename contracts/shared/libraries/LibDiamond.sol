@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.4;
 
 /******************************************************************************\
 * EIP-2535 Diamond Standard: https://eips.ethereum.org/EIPS/eip-2535

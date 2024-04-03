@@ -10,15 +10,35 @@ async function deployFacets(params) {
   console.log('')
   console.log('Deploying facets')
   const FacetNames = [
+    'P2PEscrow',
     'AdminFacet'
   ]
 
   const cut = []
   for (const FacetName of FacetNames) {
-    // console.log(FacetName)
-    const Facet = await ethers.getContractFactory(FacetName)
-    const facet = await Facet.deploy()
-    await facet.deployed()
+    let Facet, facet
+
+    if (FacetName == 'P2PEscrow') {
+      const Library = await ethers.getContractFactory("Signature");
+      const library = await Library.deploy();
+      await library.deployed();
+
+      // console.log(FacetName)
+      Facet = await ethers.getContractFactory(FacetName, {
+        libraries: {
+          Signature: library.address,
+        }
+      })
+      facet = await Facet.deploy()
+      await facet.deployed()
+
+
+    } else {
+      // console.log(FacetName)
+      Facet = await ethers.getContractFactory(FacetName)
+      facet = await Facet.deploy()
+      await facet.deployed()
+    }
 
     // console.log(`${FacetName} deployed: ${facet.address}`)
     cut.push({

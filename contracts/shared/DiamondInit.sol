@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: None
 pragma solidity ^0.8.4;
 
-import {LibDiamond} from "../shared/libraries/LibDiamond.sol";
-import {IDiamondLoupe} from "../shared/interfaces/IDiamondLoupe.sol";
-import {IDiamondCut} from "../shared/interfaces/IDiamondCut.sol";
-import {IERC173} from "../shared/interfaces/IERC173.sol";
-import {IERC165} from "../shared/interfaces/IERC165.sol";
-import {FeesOutOfRange, AppStorage} from "../libraries/LibAppStorage.sol";
+import {LibDiamond} from "./libraries/LibDiamond.sol";
+import {IDiamondLoupe} from "./interfaces/IDiamondLoupe.sol";
+import {IDiamondCut} from "./interfaces/IDiamondCut.sol";
+import {IERC173} from "./interfaces/IERC173.sol";
+import {IERC165} from "./interfaces/IERC165.sol";
+import {FeesOutOfRange, AppStorage} from "./libraries/LibAppStorage.sol";
 
 
 // It is expected that this contract is customized if you want to deploy your diamond

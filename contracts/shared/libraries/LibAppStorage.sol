@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.4;
 
-import "../shared/interfaces/IERC20.sol";
-import {LibDiamond} from "../shared/libraries/LibDiamond.sol";
-import {LibMeta} from "../shared/libraries/LibMeta.sol";
+import "../interfaces/IERC20.sol";
+import {LibDiamond} from "../libraries/LibDiamond.sol";
+import {LibMeta} from "../libraries/LibMeta.sol";
 
 error NotAnOwner();
 error ZeroAddress();

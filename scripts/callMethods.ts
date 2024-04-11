@@ -1,8 +1,14 @@
 import { ethers } from "hardhat";
 import { P2PEscrow } from "../typechain-types";
 
+const ZeroAddress = '0x0000000000000000000000000000000000000000'
+
 // Mumbai
-const deployedAddress = '0x01e6fd9b1bcb3451Ce121e479CA62B1b6aE3200D'
+// const deployedAddress = '0x01e6fd9b1bcb3451Ce121e479CA62B1b6aE3200D'
+// Polygon mainet
+// const deployedAddress = '0xF564D03eE63b79AB41653030C090582ebfFf887E'
+// Avalanche mainnet
+const deployedAddress = '0xF564D03eE63b79AB41653030C090582ebfFf887E'
 
 async function getOwner(contract: P2PEscrow) {
   return await contract.owner()
@@ -14,6 +20,11 @@ async function getArbitrator(contract: P2PEscrow) {
 
 async function escrowFee(contract: P2PEscrow) {
   return await contract.escrowFeeBP()
+}
+
+async function whitelist(contract: P2PEscrow) {
+  const response = await contract.setWhitelistedCurrencies(ZeroAddress, true)
+  console.log(response)
 }
 
 async function signatureGeneration(contract: P2PEscrow) {
@@ -151,11 +162,12 @@ async function main() {
   // console.log(arbitrator)
   // console.log(fee)
 
-  // const [account1, account2, account3, account4] = await ethers.getSigners();
-  // console.log(account1.address, account2.address, account3.address, account4.address)
+  const [account1, account2, account3, account4] = await ethers.getSigners();
+  console.log(account1.address, account2.address, account3.address, account4.address)
 
   // await signatureGeneration()
 
+  await whitelist(contract)
 
   // await createEscrow(contract)
   // await executeOrder(contract)

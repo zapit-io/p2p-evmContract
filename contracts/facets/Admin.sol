@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.24;
 
 import {
   AppStorage,
+  Escrow,
   LibAppStorage,
-  Modifiers,
-  LibEvents
+  LibEvents,
+  Modifiers
   } from "../shared/libraries/LibAppStorage.sol";
 import {LibDiamond} from "../shared/libraries/LibDiamond.sol";
 import {PausableStorage} from "../shared/libraries/LibAppStorage.sol";
@@ -24,6 +25,11 @@ contract AdminFacet is Modifiers {
   function unpause() external whenPaused onlyOwner {
     PausableStorage.layout()._paused = false;
     emit LibEvents.Unpaused(msg.sender);
+  }
+
+  /// @notice Returns if pause state of the contract
+  function paused() external view returns (bool){
+    return PausableStorage.layout()._paused;
   }
 
   ///@notice Getting the accepted currencies for escrow, true if accepted
@@ -68,7 +74,7 @@ contract AdminFacet is Modifiers {
 
   ///@notice Get the fee address of the marketplace
   function getFeeAddress() external view returns (address) {
-      return s.feeAddress;
+    return s.feeAddress;
   }
 
   /// @notice Set the fee address of the marketplace
@@ -78,8 +84,10 @@ contract AdminFacet is Modifiers {
     emit LibEvents.FeeAddressChanged(feeAddress);
   }
 
-  /// @notice Returns if pause state of the contract
-  function paused() external view returns (bool){
-    return PausableStorage.layout()._paused;
+  ///@notice Get the fee address of the marketplace
+  function getEscrow(bytes32 tradeID) external view returns (Escrow memory escrow) {
+    AppStorage storage ds = LibAppStorage.diamondStorage();
+    return ds.escrows[tradeID];
   }
+  
 }

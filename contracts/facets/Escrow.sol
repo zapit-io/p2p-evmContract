@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.24;
 import "../shared/interfaces/IERC20.sol";
 import {
   AppStorage,
@@ -9,7 +9,7 @@ import {
   Escrow
 } from "../shared/libraries/LibAppStorage.sol";
 import { Signature } from "../shared/libraries/Signature.sol";
-
+// import "hardhat/console.sol";
 
 error NotAnOwner();
 error ZeroAddress();
@@ -236,6 +236,7 @@ contract P2PEscrow is Modifiers {
 
 			// concat a message out of the tradeID and the msg.sender
 			bytes32 messageHash = Signature.getMessageHash(_tradeID, _escrow.buyer);
+			
 			bytes32 signedMessageHash = Signature.getEthSignedMessageHash(messageHash);
 			address _signatory = Signature.recoverSigner(signedMessageHash, _sig);
 

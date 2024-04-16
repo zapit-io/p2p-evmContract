@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.24;
 
 // From Open Zeppelin contracts: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Strings.sol
 

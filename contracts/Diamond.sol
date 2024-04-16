@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.24;
 
 import { LibDiamond } from "./shared/libraries/LibDiamond.sol";
 import { DiamondCutFacet } from "./shared/facets/DiamondCutFacet.sol";

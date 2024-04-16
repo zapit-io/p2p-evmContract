@@ -21,28 +21,36 @@ async function deployFacets(params) {
     if (FacetName == 'P2PEscrow') {
       const Library = await ethers.getContractFactory("Signature");
       const library = await Library.deploy();
-      await library.deployed();
+      // await library.deployed();
 
-      // console.log(FacetName)
-      Facet = await ethers.getContractFactory(FacetName, {
+      facet = await ethers.deployContract(FacetName, {
         libraries: {
-          Signature: library.address,
+          Signature: library.target,
         }
-      })
-      facet = await Facet.deploy()
-      await facet.deployed()
+      });
+
+      // // console.log(FacetName)
+      // Facet = await ethers.getContractFactory(FacetName, {
+      //   libraries: {
+      //     Signature: library.target,
+      //   }
+      // })
+      // facet = await Facet.deploy()
+      // await facet.deployed()
 
 
     } else {
       // console.log(FacetName)
-      Facet = await ethers.getContractFactory(FacetName)
-      facet = await Facet.deploy()
-      await facet.deployed()
+      facet = await ethers.deployContract(FacetName);
+
+      // Facet = await ethers.getContractFactory(FacetName)
+      // facet = await Facet.deploy()
+      // await facet.deployed()
     }
 
     // console.log(`${FacetName} deployed: ${facet.address}`)
     cut.push({
-      facetAddress: facet.address,
+      facetAddress: facet.target,
       action: FacetCutAction.Add,
       functionSelectors: getSelectors(facet)
     })
@@ -63,7 +71,7 @@ async function deployFacets(params) {
 
     const result = await diamondCutFacet.diamondCut(
       cut,
-      diamondInit.address,
+      diamondInit.target,
       functionCall
     )
     console.log('Upgrade transaction hash: ' + result.hash)

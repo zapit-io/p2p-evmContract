@@ -1,14 +1,16 @@
 /* global ethers */
 
+const { ErrorFragment } = require("ethers")
+const { FunctionFragment } = require("ethers")
+
 const FacetCutAction = { Add: 0, Replace: 1, Remove: 2 }
 
 // get function selectors from ABI
 function getSelectors(contract) {
-  const signatures = Object.keys(contract.interface.functions)
-  // console.log("Inside selector", contract.address, signatures)
+  const signatures = Object.values(contract.interface.fragments)
   const selectors = signatures.reduce((acc, val) => {
-    if (val !== 'init(bytes)') {
-      acc.push(contract.interface.getSighash(val))
+    if (val.name !== 'init') {
+      acc.push(FunctionFragment.getSelector(val.name, val.inputs))
     }
     return acc
   }, [])

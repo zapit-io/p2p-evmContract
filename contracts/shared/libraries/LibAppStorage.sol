@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.24;
 
 import "../interfaces/IERC20.sol";
 import {LibDiamond} from "../libraries/LibDiamond.sol";
@@ -85,7 +85,7 @@ library LibEvents {
   /// @param _seller                  Seller address of the escrow
   /// @param _buyer                   Buyer address of the escrow
   /// @param _extUniqueIdentifier     External identifier that references the escrow
-  /// @param _currency                 Currency of the order, native or ERC20
+  /// @param _currency                Currency of the order, native or ERC20
   /// @param _value                   Value of the trade either in native currency or ERC20 token (Excluding fee)
   /// @param _escrowFeeBP             The contract level fee setting of the time when trade was created
   event Created(

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.24;
 
 library LibMeta {
     bytes32 internal constant EIP712_DOMAIN_TYPEHASH =

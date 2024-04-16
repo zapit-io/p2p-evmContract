@@ -1,3 +1,4 @@
+
 /* global describe it before ethers */
 
 const {
@@ -6,35 +7,40 @@ const {
   removeSelectors,
   findAddressPositionInFacets
 } = require('../scripts/libraries/diamond.js')
-
 const { deployDiamond } = require('../scripts/deploy.js')
 const { deployFacets } = require('../scripts/deployFacets.js');
-
-const { assert } = require('chai')
-const { ethers } = require('hardhat')
+import { assert, expect } from 'chai'
+import { ZeroAddress } from "ethers"
+// import * as w from ethers
+import { ethers } from "hardhat";
+// console.log('ethers', w)
 
 
 describe('Tests', async function () {
-  let diamondAddress
-  let diamondCutFacet
-  let diamondLoupeFacet
-  let ownershipFacet
-  let accounts
-  let deployer, arbitrator, buyer, seller
+  let diamondAddress;
+  let diamondCutFacet;
+  let diamondLoupeFacet;
+  let ownershipFacet: any;
+  let contractOwnerAddress;
+  let testFeeAccountAddress: any;
+  let feeAccount: any;
+  let feeAccountAddress: any;
+  let accounts: any;
+  let escrowFacet: any, adminFacet: any, signatureLib: any;
+  let deployer: any, arbitrator, buyer: any, seller: any;
 
   const FEES = 100; // 1%
   const PAYMENT_WINDOW = 600; // 10 minutes
   const ETHERS_VALUE = 1;
-  const ESCROW_VALUE = ethers.utils.parseEther(ETHERS_VALUE.toString());
-  const ESCROW_TOTAL_VALUE = ethers.utils.parseEther(
+
+  const ESCROW_VALUE = ethers.parseEther(ETHERS_VALUE.toString());
+  const ESCROW_TOTAL_VALUE = ethers.parseEther(
     `${ETHERS_VALUE + (ETHERS_VALUE * FEES) / (10000 * 2)}`
   ); //  calculated after seller sent their 50% of the fees
   const TRADE_ID =
     "0x808c20ef09149650b29fbae1cc74c8cae292164efe69529e23749d3642bcff7a"; // replace this value the hardhat value that's returned from the contract (it'll be dynamic everytime for tests);
 
-  const EXT_TRADE_RANDOM = ethers.utils.formatBytes32String("123");
-
-  // parseBytes32String
+  const EXT_TRADE_RANDOM = ethers.encodeBytes32String("123");
 
   before(async function () {
     let res = await deployDiamond()
@@ -56,6 +62,8 @@ describe('Tests', async function () {
 
     ownershipFacet = await ethers.getContractAt('OwnershipFacet', diamondAddress)
     adminFacet = await ethers.getContractAt('AdminFacet', diamondAddress)
+
+    signatureLib = await ethers.deployContract('Signature')
 
 
     // Contracts are deployed using the first signer/account by default
@@ -105,12 +113,28 @@ describe('Tests', async function () {
     assert(res == true)
   })
 
-  it("P2PEscrow: Create Native contract", async () => {
-    const res = await escrowFacet.createEscrowNative(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
+  it("P2PEscrow: Create and Complete Native currency trade", async () => {
+    let res = await escrowFacet.createEscrowNative(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
       value: ESCROW_TOTAL_VALUE,
-    });
-    console.log(res)
+    })
+
+    const response = await res.wait()
+    const tradeHash = response.logs[0].args[0]
+    let escrowStruct = await adminFacet.getEscrow(tradeHash);
+    assert(escrowStruct[7] == true, "Escrow is not active")
+
+    // // escrowFacet.
+    const messageHash = await signatureLib.getMessageHash(tradeHash, buyer.address)
+    const sig = await deployer.signMessage(ethers.getBytes(messageHash));
+    const signedMessageHash = await signatureLib.getEthSignedMessageHash(messageHash);
+    const _signatory = await signatureLib.recoverSigner(signedMessageHash, sig);
+
+    assert(_signatory == deployer.address, "Invalid signatory")
+
+    // Complete the trade
+    res = await escrowFacet.executeOrder(tradeHash, sig)
+
+    escrowStruct = await adminFacet.getEscrow(tradeHash);
+    assert(escrowStruct[7] == false, "Escrow still active")
   })
-
-
 })

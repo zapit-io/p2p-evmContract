@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.24;
 
 import {IDiamondCut} from "../interfaces/IDiamondCut.sol";
 import {LibDiamond} from "../libraries/LibDiamond.sol";

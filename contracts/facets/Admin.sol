@@ -1,16 +1,9 @@
 // SPDX-License-Identifier: None
 pragma solidity ^0.8.24;
 
-import {
-  AppStorage,
-  Escrow,
-  LibAppStorage,
-  LibEvents,
-  Modifiers
-  } from "../shared/libraries/LibAppStorage.sol";
-import {LibDiamond} from "../shared/libraries/LibDiamond.sol";
-import {PausableStorage} from "../shared/libraries/LibAppStorage.sol";
-
+import { AppStorage, Escrow, LibAppStorage, LibEvents, Modifiers } from "../shared/libraries/LibAppStorage.sol";
+import { LibDiamond } from "../shared/libraries/LibDiamond.sol";
+import { PausableStorage } from "../shared/libraries/LibAppStorage.sol";
 
 /// @title Zapit P2P Admin Contract
 /// @author Zapit
@@ -28,7 +21,7 @@ contract AdminFacet is Modifiers {
   }
 
   /// @notice Returns if pause state of the contract
-  function paused() external view returns (bool){
+  function paused() external view returns (bool) {
     return PausableStorage.layout()._paused;
   }
 
@@ -37,7 +30,7 @@ contract AdminFacet is Modifiers {
   function getWhitelistedCurrencies(
     address _currency
   ) external view returns (bool) {
-      return s.whitelistedCurrencies[_currency];
+    return s.whitelistedCurrencies[_currency];
   }
 
   ///@notice Setting the accepted currencies for escrow
@@ -85,9 +78,10 @@ contract AdminFacet is Modifiers {
   }
 
   ///@notice Get the fee address of the marketplace
-  function getEscrow(bytes32 tradeID) external view returns (Escrow memory escrow) {
+  function getEscrow(
+    bytes32 tradeID
+  ) external view returns (Escrow memory escrow) {
     AppStorage storage ds = LibAppStorage.diamondStorage();
     return ds.escrows[tradeID];
   }
-  
 }

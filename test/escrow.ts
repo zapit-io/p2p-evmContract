@@ -1,19 +1,8 @@
-
-/* global describe it before ethers */
-
-const {
-  getSelectors,
-  FacetCutAction,
-  removeSelectors,
-  findAddressPositionInFacets
-} = require('../scripts/libraries/diamond.js')
 const { deployDiamond } = require('../scripts/deploy.js')
 const { deployFacets } = require('../scripts/deployFacets.js');
 import { assert, expect } from 'chai'
 import { ZeroAddress } from "ethers"
-// import * as w from ethers
 import { ethers } from "hardhat";
-// console.log('ethers', w)
 
 
 describe('Tests', async function () {
@@ -110,6 +99,12 @@ describe('Tests', async function () {
   it("ADMIN: PAUSABLE: Should pause the market", async () => {
     await adminFacet.pause()
     let res = await adminFacet.paused()
+    assert(res == true)
+  })
+
+  it("ADMIN: Whitelist base currency", async () => {
+    await adminFacet.setWhitelistedCurrencies(ZeroAddress, true)
+    let res = await adminFacet.getWhitelistedCurrencies(ZeroAddress)
     assert(res == true)
   })
 

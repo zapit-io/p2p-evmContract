@@ -20,77 +20,10 @@ error AmountHigherThanAvailable();
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
-contract P2PEscrow is Modifiers {
+contract P2PEscrowERC20 is Modifiers {
   /***********************
 	+   User-Functions   +
 	***********************/
-
-  /// @notice Create and fund a new escrow.
-  /// @param _buyer The buying party
-  /// @param _value The amount of the escrow, exclusive of the fee
-  /// @param _extUniqueIdentifier The external unique identifier, could be hash of the escrow
-  function createEscrowNative(
-    address _buyer,
-    uint256 _value,
-    bytes32 _extUniqueIdentifier
-  ) external payable nonReentrant onlyWhitelistedCurrencies(address(0)) {
-    AppStorage storage ds = LibAppStorage.diamondStorage();
-    bytes32 trade = ds.extIdentifierToEscrow[_extUniqueIdentifier];
-
-    // Check if the external identifier for the trade already exists.
-    // This is a strick check for the externally provided information
-    // to prevent duplicate trades that refer the same external identifier
-    if (trade != bytes32(0)) {
-      revert TradeExists();
-    }
-
-    bytes32 _tradeID = keccak256(
-      abi.encodePacked(
-        ds.escrowCounter++,
-        msg.sender,
-        _buyer,
-        _value,
-        _extUniqueIdentifier
-      )
-    );
-
-    // checking if the trade already exists
-    if (ds.escrows[_tradeID].exists) {
-      revert TradeExists();
-    }
-
-    // Check transaction value against passed _value and make sure it is not 0
-    /**
-     * @description: value + seller fees = msg.value
-     */
-    uint256 _sellerFees = (_value * ds.escrowFeeBP) / (10000 * 2);
-
-    if (msg.value == 0 || msg.value != (_value + _sellerFees)) {
-      revert IncorrectEth();
-    }
-
-    // Add the escrow to the public mapping
-    ds.escrows[_tradeID] = Escrow(
-      _extUniqueIdentifier,
-      payable(_buyer),
-      payable(msg.sender),
-      address(0),
-      _value,
-      block.number,
-      ds.escrowFeeBP,
-      true
-    );
-    ds.extIdentifierToEscrow[_extUniqueIdentifier] = _tradeID;
-    emit LibEvents.Created(
-      _tradeID,
-      msg.sender,
-      _buyer,
-      _extUniqueIdentifier,
-      address(0),
-      _value,
-      ds.escrowFeeBP
-    );
-  }
 
   /// @notice Create and fund a new escrow for ERC20 token.
   /// @param _buyer The buying party
@@ -170,7 +103,7 @@ contract P2PEscrow is Modifiers {
   /// @notice Called by the favourable party for whom the order has been resolved by the arbitrator
   /// @param _tradeID Escrow "tradeID" parameter
   /// @param _sig Signature from the party in favour of whom the dispute is resolved
-  function claimDisputedOrder(
+  function claimDisputedOrderERC20(
     bytes32 _tradeID,
     bytes memory _sig
   ) external nonReentrant {
@@ -200,7 +133,12 @@ contract P2PEscrow is Modifiers {
     _escrow.exists = false;
 
     // transfer the funds to the msg.sender
-    transferMinusFeeNative(payable(msg.sender), _escrow.value, fee);
+    transferMinusFeeERC20(
+      payable(msg.sender),
+      _escrow.value,
+      fee,
+      _escrow.currency
+    );
     emit LibEvents.DisputeClaimed(
       _tradeID,
       msg.sender,
@@ -235,14 +173,21 @@ contract P2PEscrow is Modifiers {
 
     // transfer the funds to the msg.sender
     _escrow.exists = false;
-    transferMinusFeeNative(payable(_escrow.buyer), _escrow.value, _escrow._fee);
+    transferMinusFeeERC20(
+      payable(_escrow.buyer),
+      _escrow.value,
+      _escrow._fee,
+      _escrow.currency
+    );
     emit LibEvents.TradeCompleted(_tradeID, _escrow._extUniqueIdentifier, _sig);
   }
 
   ///@notice Called buy the buyer to cancel the escrow and returning the funds to the seller
   ///@param _tradeID Escrow "tradeID" parameter
   ///@return bool
-  function buyerCancel(bytes32 _tradeID) external nonReentrant returns (bool) {
+  function buyerCancelERC20(
+    bytes32 _tradeID
+  ) external nonReentrant returns (bool) {
     AppStorage storage ds = LibAppStorage.diamondStorage();
     Escrow storage _escrow = ds.escrows[_tradeID];
 
@@ -255,7 +200,12 @@ contract P2PEscrow is Modifiers {
 
     // Set the escrow exists to false
     _escrow.exists = false;
-    transferMinusFeeNative(_escrow.seller, _escrow.value, ds.escrowFeeBP);
+    transferMinusFeeERC20(
+      _escrow.seller,
+      _escrow.value,
+      ds.escrowFeeBP,
+      _escrow.currency
+    );
     emit LibEvents.CancelledByBuyer(_tradeID, _escrow._extUniqueIdentifier);
     return true;
   }
@@ -263,26 +213,28 @@ contract P2PEscrow is Modifiers {
   /// @notice Transfer the value of an escrow, minus the fees
   /// @param _to Recipient address
   /// @param _value Value of the transfer
-  /// @param _fee Fee to be transferred to fee address
-  function transferMinusFeeNative(
+  function transferMinusFeeERC20(
     address payable _to,
     uint256 _value,
-    uint256 _fee
+    uint256 _fee,
+    address _currency
   ) private {
     /**
-     * @description: Here we are initializing the variables with an assumption that the transfer is for a good order as in completed
+     * @description: Here we are initializing the variables with an assumption
+     * that the transfer is for a good order as in completed
      */
     uint256 _totalFees = (_value * _fee) / 10000; // total-fees
     uint256 _totalTransferValue = _value - _totalFees / 2; // buyer-side fees which is 50% of the _totalFees
     /**
-     * @description: if the fee is 0 and the caller is the seller(i.e. msg.sender) then we don't charge any fee(s) on that escrow
+     * @description: if the fee is 0 and the caller is the seller(i.e. msg.sender)
+     * then we don't charge any fee(s) on that escrow
      */
     if (_fee == 0 && _to == msg.sender) {
       _totalFees = _totalFees / 2;
       _totalTransferValue = _value + _totalFees;
     } else {
-      payable(s.feeAddress).transfer(_totalFees);
+      IERC20(_currency).transfer(s.feeAddress, _totalFees);
     }
-    payable(_to).transfer(_totalTransferValue);
+    IERC20(_currency).transfer(_to, _totalTransferValue);
   }
 }

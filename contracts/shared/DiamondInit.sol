@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: None
 pragma solidity ^0.8.24;
 
-import {LibDiamond} from "./libraries/LibDiamond.sol";
-import {IDiamondLoupe} from "./interfaces/IDiamondLoupe.sol";
-import {IDiamondCut} from "./interfaces/IDiamondCut.sol";
-import {IERC173} from "./interfaces/IERC173.sol";
-import {IERC165} from "./interfaces/IERC165.sol";
-import {FeesOutOfRange, AppStorage} from "./libraries/LibAppStorage.sol";
-
+import { LibDiamond } from "./libraries/LibDiamond.sol";
+import { IDiamondLoupe } from "./interfaces/IDiamondLoupe.sol";
+import { IDiamondCut } from "./interfaces/IDiamondCut.sol";
+import { IERC173 } from "./interfaces/IERC173.sol";
+import { IERC165 } from "./interfaces/IERC165.sol";
+import { FeesOutOfRange, AppStorage } from "./libraries/LibAppStorage.sol";
 
 // It is expected that this contract is customized if you want to deploy your diamond
 // with data from a deployment script. Use the init function to initialize state variables
@@ -18,10 +17,7 @@ contract DiamondInit {
 
   // You can add parameters to this function in order to pass in
   // data to set your own state variables
-  function init(
-    address feeAddress,
-    uint16 escrowFeeBP
-  ) external {
+  function init(address feeAddress, uint16 escrowFeeBP) external {
     // adding ERC165 data
     LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
     ds.supportedInterfaces[type(IERC165).interfaceId] = true;
@@ -33,7 +29,7 @@ contract DiamondInit {
     s.arbitrator = msg.sender;
 
     if (escrowFeeBP > 10000) {
-        revert FeesOutOfRange();
+      revert FeesOutOfRange();
     }
 
     s.escrowFeeBP = escrowFeeBP;

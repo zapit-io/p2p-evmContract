@@ -31,15 +31,6 @@ module.exports = {
         count: 6,
       },
     },
-    mumbai: {
-      url: `https://polygon-mumbai.g.alchemy.com/v2/ji7Gf_GEBEgvLHWomaRf-Y1UPvIj2o1i`,
-      chainId: 80001,
-      // url: "https://rpc-mumbai.maticvigil.com",
-      accounts: {
-        mnemonic: process.env.MNEMONIC,
-        count: 6,
-      },
-    },
     avalanche: {
       url: `https://api.avax.network/ext/bc/C/rpc`,
       chainId: 43114,

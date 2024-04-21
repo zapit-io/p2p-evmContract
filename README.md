@@ -6,22 +6,20 @@ To run all the tests: `npx hardhat test`
 
 #### Contract Interactions
 
-Deployment: `npx hardhat run scripts/deploy.ts --network mumbai`
-Calling Contract methods: `npx hardhat run scripts/callMethods.ts --network mumbai`
+Deployment: `npx hardhat run scripts/deploy.js --network polygon`
+Calling Contract methods: `npx hardhat run scripts/callMethods.js --network polygon`
 
 ### Supported Networks
 
 Mainnet
 - Ethereum
+- Avalanche
 - Polygon
-
-Testnet
-- Mumbai
 
 #### Deployed Addresses
 
-- Mumbai: `0x01e6fd9b1bcb3451Ce121e479CA62B1b6aE3200D`
 - Polygon: `0x0`
+- Avalanche: `0x0`
 - Ethereum: `0x0`
 
 #### Other commands

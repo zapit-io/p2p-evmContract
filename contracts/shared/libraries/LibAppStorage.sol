@@ -18,6 +18,7 @@ error InvalidSignatureLength();
 error NotAnArbitrator();
 error NotBuyer();
 error TradeExists();
+error ExtUniqueIdentifierExists();
 error TradeWithSelf();
 error ZeroAddress();
 
@@ -43,8 +44,6 @@ struct Escrow {
 struct AppStorage {
   // Address of the arbitrator
   address arbitrator;
-  // Address of the owner (who can withdraw collected fees)
-  address owner;
   // Address that gets the fee for each order
   address feeAddress;
   // Fee Basis Points: fees for owner inclusive of bases points

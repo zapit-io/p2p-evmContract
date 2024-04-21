@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import "../shared/interfaces/IERC20.sol";
-import { AppStorage, Escrow, EscrowDoesNotExist, IncorrectEth, InvalidArbitratorSignature, InvalidSellerSignature, LibAppStorage, LibEvents, Modifiers, NotBuyer, TradeExists, TradeWithSelf } from "../shared/libraries/LibAppStorage.sol";
+import { AppStorage, Escrow, EscrowDoesNotExist, ExtUniqueIdentifierExists, IncorrectEth, InvalidArbitratorSignature, InvalidSellerSignature, LibAppStorage, LibEvents, Modifiers, NotBuyer, TradeExists, TradeWithSelf } from "../shared/libraries/LibAppStorage.sol";
 import { Signature } from "../shared/libraries/Signature.sol";
 
 /// @title Zapit P2P Escrows
@@ -33,7 +33,7 @@ contract P2PEscrow is Modifiers {
     // This is a strick check for the externally provided information
     // to prevent duplicate trades that refer the same external identifier
     if (trade != bytes32(0)) {
-      revert TradeExists();
+      revert ExtUniqueIdentifierExists();
     }
 
     // Cannot trade with self
@@ -185,12 +185,9 @@ contract P2PEscrow is Modifiers {
     emit LibEvents.TradeCompleted(_tradeID, _escrow.extUniqueIdentifier, _sig);
   }
 
-  ///@notice Called buy the buyer to cancel the escrow and returning the funds to the seller
+  ///@notice Called by the buyer to cancel the escrow and returning the funds to the seller
   ///@param _tradeID Escrow "tradeID" parameter
-  ///@return bool
-  function buyerCancel(
-    bytes32 _tradeID
-  ) external nonReentrant nonContract returns (bool) {
+  function buyerCancel(bytes32 _tradeID) external nonReentrant nonContract {
     AppStorage storage ds = LibAppStorage.diamondStorage();
     Escrow storage _escrow = ds.escrows[_tradeID];
 
@@ -212,7 +209,5 @@ contract P2PEscrow is Modifiers {
     payable(_escrow.seller).transfer(_totalTransferValue);
 
     emit LibEvents.CancelledByBuyer(_tradeID, _escrow.extUniqueIdentifier);
-
-    return true;
   }
 }

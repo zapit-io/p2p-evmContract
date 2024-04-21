@@ -21,34 +21,15 @@ async function deployFacets(params) {
     if (FacetName == 'P2PEscrow') {
       const Library = await ethers.getContractFactory("Signature");
       const library = await Library.deploy();
-      // await library.deployed();
 
       facet = await ethers.deployContract(FacetName, {
         libraries: {
           Signature: library.target,
         }
       });
-
-      // // console.log(FacetName)
-      // Facet = await ethers.getContractFactory(FacetName, {
-      //   libraries: {
-      //     Signature: library.target,
-      //   }
-      // })
-      // facet = await Facet.deploy()
-      // await facet.deployed()
-
-
     } else {
-      // console.log(FacetName)
       facet = await ethers.deployContract(FacetName);
-
-      // Facet = await ethers.getContractFactory(FacetName)
-      // facet = await Facet.deploy()
-      // await facet.deployed()
     }
-
-    // console.log(`${FacetName} deployed: ${facet.address}`)
     cut.push({
       facetAddress: facet.target,
       action: FacetCutAction.Add,
@@ -59,7 +40,7 @@ async function deployFacets(params) {
   try {
     const diamondInit = await ethers.getContractAt('DiamondInit', diamondInitAddr)
     const accounts = await ethers.getSigners()
-    const feeAddress = accounts[3].address
+    const feeAddress = accounts[4].address
 
     // call to init function
     let functionCall = diamondInit.interface.encodeFunctionData(

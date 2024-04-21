@@ -8,6 +8,8 @@ import { PausableStorage } from "../shared/libraries/LibAppStorage.sol";
 /// @title Zapit P2P Admin Contract
 /// @author Zapit
 contract AdminFacet is Modifiers {
+  /// SETTERS
+
   /// @notice Pause the contract
   function pause() external whenNotPaused onlyOwner {
     PausableStorage.layout()._paused = true;
@@ -18,19 +20,6 @@ contract AdminFacet is Modifiers {
   function unpause() external whenPaused onlyOwner {
     PausableStorage.layout()._paused = false;
     emit LibEvents.Unpaused(msg.sender);
-  }
-
-  /// @notice Returns if pause state of the contract
-  function paused() external view returns (bool) {
-    return PausableStorage.layout()._paused;
-  }
-
-  ///@notice Getting the accepted currencies for escrow, true if accepted
-  ///@param _currency Address of the currency
-  function getWhitelistedCurrencies(
-    address _currency
-  ) external view returns (bool) {
-    return s.whitelistedCurrencies[_currency];
   }
 
   ///@notice Setting the accepted currencies for escrow
@@ -50,13 +39,6 @@ contract AdminFacet is Modifiers {
     emit LibEvents.ArbitratorChanged(_newArbitrator);
   }
 
-  /// @notice Change the owner to a new address. Only the owner can call this.
-  /// @param _newOwner Address of the replacement owner
-  function setOwner(address _newOwner) external onlyOwner {
-    s.owner = _newOwner;
-    emit LibEvents.OwnerChanged(_newOwner);
-  }
-
   /// @notice Setting the fees of the contract
   /// @param _fees Fees in basis-points
   function setFees(uint16 _fees) public onlyOwner {
@@ -65,16 +47,41 @@ contract AdminFacet is Modifiers {
     emit LibEvents.FeesChanged(_fees);
   }
 
-  ///@notice Get the fee address of the marketplace
-  function getFeeAddress() external view returns (address) {
-    return s.feeAddress;
-  }
-
   /// @notice Set the fee address of the marketplace
   /// @param feeAddress The address that will get the fee charged per order
   function setFeeAddress(address feeAddress) external onlyOwner {
     s.feeAddress = feeAddress;
     emit LibEvents.FeeAddressChanged(feeAddress);
+  }
+
+  /// GETTERS
+
+  /// @notice Returns if pause state of the contract
+  function paused() external view returns (bool) {
+    return PausableStorage.layout()._paused;
+  }
+
+  ///@notice Getting the accepted currencies for escrow, true if accepted
+  ///@param _currency Address of the currency
+  function getWhitelistedCurrencies(
+    address _currency
+  ) external view returns (bool) {
+    return s.whitelistedCurrencies[_currency];
+  }
+
+  /// @notice Get the arbitrator of the contract
+  function getArbitrator() external view returns (address) {
+    return s.arbitrator;
+  }
+
+  /// @notice Get the curreny market fee
+  function getFees() external view returns (uint16) {
+    return s.escrowFeeBP;
+  }
+
+  ///@notice Get the fee address of the marketplace
+  function getFeeAddress() external view returns (address) {
+    return s.feeAddress;
   }
 
   ///@notice Get the fee address of the marketplace

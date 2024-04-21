@@ -5,24 +5,25 @@ import "../interfaces/IERC20.sol";
 import { LibDiamond } from "../libraries/LibDiamond.sol";
 import { LibMeta } from "../libraries/LibMeta.sol";
 
-error ZeroAddress();
+error AmountHigherThanAvailable();
 error CannotBeAContract();
-error NotAnArbitrator();
-error FeesOutOfRange();
-error TradeExists();
-error IncorrectEth();
 error CurrencyNotWhitelisted(address _currency);
-error IncorrectCurrencyAmount(address _currency);
 error EscrowDoesNotExist();
+error FeesOutOfRange();
+error IncorrectCurrencyAmount(address _currency);
+error IncorrectEth();
 error InvalidArbitratorSignature();
 error InvalidSellerSignature();
-error NotBuyer();
 error InvalidSignatureLength();
-error AmountHigherThanAvailable();
+error NotAnArbitrator();
+error NotBuyer();
+error TradeExists();
+error TradeWithSelf();
+error ZeroAddress();
 
 struct Escrow {
   // External identifier that references the escrow;
-  bytes32 _extUniqueIdentifier;
+  bytes32 extUniqueIdentifier;
   // Address of the buyer
   address payable buyer;
   // Address of the seller
@@ -33,8 +34,8 @@ struct Escrow {
   uint256 value;
   // The timestamp when the escrow was created
   uint256 createdAt;
-  // Fees based on bps
-  uint16 _fee;
+  // Fees based on bps i.e bases points
+  uint16 fee;
   // To check if the escrow exists
   bool exists;
 }
@@ -251,10 +252,11 @@ contract Modifiers {
   }
 
   // Modifier for restricting the address to be a non-contract address
-  modifier nonContract(address _address) {
+  modifier nonContract() {
     uint256 size;
+    address senderAddress = msg.sender;
     assembly {
-      size := extcodesize(_address)
+      size := extcodesize(senderAddress)
     }
     if (size > 0) {
       revert CannotBeAContract();

@@ -1,29 +1,39 @@
 import { ethers } from "hardhat";
-import { P2PEscrow } from "../typechain-types";
+import { P2PEscrow, Diamond } from "../typechain-types";
 import { ZeroAddress } from "ethers";
 
-// Mumbai
-const deployedAddress = '0x01e6fd9b1bcb3451Ce121e479CA62B1b6aE3200D'
 
 // Polygon
 // const deployedAddress = '0xF564D03eE63b79AB41653030C090582ebfFf887E'
+const diamondCutFacet = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
+const deployedAddress = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3' // Diamond
+const diamondInit = '0x3A8dbfa87f2940C1307C289dA836423653D67201'
+
+// Avalanche
 
 
-async function getOwner(contract: P2PEscrow) {
-  return await contract.owner()
+// ---------------------------------------------
+// ---------------------------------------------
+
+async function getOwner() {
+  // const contract = await ethers.getContractAt("Diamond", deployedAddress);
+  // return await contract.owner()
 }
 
-async function setArbitrator(contract: P2PEscrow) {
+async function setArbitrator() {
+  const contract = await ethers.getContractAt("AdminFacet", deployedAddress);
   return await contract.setArbitrator('0xA53E13f5724DC9b6F4a576089Fa669de68F24D1D')
 }
 
-async function getArbitrator(contract: P2PEscrow) {
-  const arbitrator = await contract.arbitrator()
+async function getArbitrator() {
+  const contract = await ethers.getContractAt("AdminFacet", deployedAddress);
+  const arbitrator = await contract.getArbitrator()
   console.log(arbitrator)
 }
 
-async function escrowFee(contract: P2PEscrow) {
-  return await contract.escrowFeeBP()
+async function escrowFee() {
+  const contract = await ethers.getContractAt("AdminFacet", deployedAddress);
+  return await contract.getFees()
 }
 
 async function signatureGeneration() {
@@ -63,18 +73,19 @@ async function signatureGeneration() {
 
 }
 
-async function claimDisputed(contract: P2PEscrow) {
+async function claimDisputed() {
+  const adminContract = await ethers.getContractAt("AdminFacet", deployedAddress);
+  const p2pContract = await ethers.getContractAt("P2PEscrow", deployedAddress);
+  const signatureLibrary = await ethers.getContractAt("Signature", deployedAddress);
+
   const tradeId = '0xd411c0d851a24877ba953a4b637b1728530f8057941c0f4d0a1e60d59ba9ec30'
   // const signature = '0x50bdeb79baece22352ec05a17fdd595fab76f71b84c1dd9984d8411d6ce4926638ef1200ac4f52b96a9a5e43177afdd2ee448c8bae6ca927b945864a0b17cb581b'
 
-  const esc = await contract.escrows(tradeId)
+  const esc = await adminContract.getEscrow(tradeId)
   console.log(esc)
   console.log('tradeId: ', tradeId)
 
-  const _arbitrator = await contract.arbitrator()
-  console.log('_arbitrator: ', _arbitrator)
-
-  const messageHash = await contract.getMessageHash(tradeId, '0x743a2c5bf4ee9cc700dc9b797b128897cae7889c')
+  const messageHash = await signatureLibrary.getMessageHash(tradeId, '0x743a2c5bf4ee9cc700dc9b797b128897cae7889c')
   console.log('messageHash: ', messageHash)
 
   const accounts = await ethers.getSigners()
@@ -85,14 +96,18 @@ async function claimDisputed(contract: P2PEscrow) {
 
   console.log(signature)
 
-  const result = await contract.claimDisputedOrder(tradeId, signature)
+  const result = await p2pContract.claimDisputedOrder(tradeId, signature)
   console.log(result)
 }
 
-async function cancelOrder(contract: P2PEscrow) {
+async function cancelOrder() {
+  const adminContract = await ethers.getContractAt("AdminFacet", deployedAddress);
+  const p2pContract = await ethers.getContractAt("P2PEscrow", deployedAddress);
+  const signatureLibrary = await ethers.getContractAt("Signature", deployedAddress);
+
   const tradeId = '0x3fd5957aeb0f137db7c5072e9d1a5b07ad54f937fa5df0b0c6c4d01fa2d4955e'
 
-  const esc = await contract.escrows(tradeId)
+  const esc = await adminContract.getEscrow(tradeId)
   console.log(esc)
   console.log('tradeId: ', tradeId)
 
@@ -100,21 +115,25 @@ async function cancelOrder(contract: P2PEscrow) {
   console.log(accounts[0])
 
 
-  const result = await contract.buyerCancel(tradeId)
+  const result = await p2pContract.buyerCancel(tradeId)
   console.log(result)
 }
 
-async function executeOrder(contract: P2PEscrow) {
+async function executeOrder() {
+  const adminContract = await ethers.getContractAt("AdminFacet", deployedAddress);
+  const p2pContract = await ethers.getContractAt("P2PEscrow", deployedAddress);
+  const signatureLibrary = await ethers.getContractAt("Signature", deployedAddress);
+
   // This will be the mongoDB id based of present architecture of zapit
   // const EXT_TRADE_RANDOM = ethers.encodeBytes32String("65ca00dd2775f0503fc59eaf");
 
   const tradeId = '0x04faeff11fe93c390df89fc32cf9ac05b35a9e46a247b71ca0e2810c7f62cba9'
 
-  const esc = await contract.escrows(tradeId)
+  const esc = await adminContract.getEscrow(tradeId)
   console.log(esc)
   console.log('tradeId: ', tradeId)
 
-  const messageHash = await contract.getMessageHash(tradeId, '0x4f7b8f0ecf10407fbf318feb9e9e886d1201fd9d')
+  const messageHash = await signatureLibrary.getMessageHash(tradeId, '0x4f7b8f0ecf10407fbf318feb9e9e886d1201fd9d')
   console.log('messageHash: ', messageHash)
 
   const accounts = await ethers.getSigners()
@@ -124,41 +143,48 @@ async function executeOrder(contract: P2PEscrow) {
   const signature = await signer.signMessage(ethers.getBytes(messageHash));
 
   console.log(signature)
-  const result = await contract.executeOrder(tradeId, signature)
+  const result = await p2pContract.executeOrder(tradeId, signature)
   console.log(result)
 
 }
 
 
-async function createEscrowToken(contract: P2PEscrow) {
+// async function createEscrowToken() {
+//   const adminContract = await ethers.getContractAt("AdminFacet", deployedAddress);
+//   const p2pContract = await ethers.getContractAt("P2PEscrow", deployedAddress);
+//   const signatureLibrary = await ethers.getContractAt("Signature", deployedAddress);
 
-  // const [buyer] = await ethers.getSigners();
-  // const buyerAddress = buyer.address
-  const buyerAddress = '0x4f7b8f0ecf10407fbf318feb9e9e886d1201fd9d'
+//   // const [buyer] = await ethers.getSigners();
+//   // const buyerAddress = buyer.address
+//   const buyerAddress = '0x4f7b8f0ecf10407fbf318feb9e9e886d1201fd9d'
 
-  const FEES = 100; // 1%
-  const ETHERS_VALUE = 0.0001;
-  const ESCROW_VALUE = ethers.parseEther(ETHERS_VALUE.toString());
-  const ESCROW_TOTAL_VALUE = ethers.parseEther(
-    `${ETHERS_VALUE + (ETHERS_VALUE * FEES) / (10000 * 2)}`
-  ); //  calculated after seller sent their 50% of the fees
+//   const FEES = 100; // 1%
+//   const ETHERS_VALUE = 0.0001;
+//   const ESCROW_VALUE = ethers.parseEther(ETHERS_VALUE.toString());
+//   const ESCROW_TOTAL_VALUE = ethers.parseEther(
+//     `${ETHERS_VALUE + (ETHERS_VALUE * FEES) / (10000 * 2)}`
+//   ); //  calculated after seller sent their 50% of the fees
 
-  // This will be the mongoDB id based of present architecture of zapit
-  const EXT_TRADE_RANDOM = ethers.encodeBytes32String("65e1943c7d200aff96ae5348");
+//   // This will be the mongoDB id based of present architecture of zapit
+//   const EXT_TRADE_RANDOM = ethers.encodeBytes32String("65e1943c7d200aff96ae5348");
 
-  console.log('EXT_TRADE_RANDOM: ', EXT_TRADE_RANDOM)
+//   console.log('EXT_TRADE_RANDOM: ', EXT_TRADE_RANDOM)
 
-  const result = await contract.createEscrowERC20(
-    buyerAddress,
-    ESCROW_VALUE,
-    '0x0F73cc99dE9bF6657C46B55fD666b82FcB9dbD2C',
-    EXT_TRADE_RANDOM
-  )
+//   const result = await contract.createEscrowERC20(
+//     buyerAddress,
+//     ESCROW_VALUE,
+//     '0x0F73cc99dE9bF6657C46B55fD666b82FcB9dbD2C',
+//     EXT_TRADE_RANDOM
+//   )
 
-  console.log(result)
-}
+//   console.log(result)
+// }
 
-async function createEscrow(contract: P2PEscrow) {
+async function createEscrow() {
+
+  const adminContract = await ethers.getContractAt("AdminFacet", deployedAddress);
+  const p2pContract = await ethers.getContractAt("P2PEscrow", deployedAddress);
+  const signatureLibrary = await ethers.getContractAt("Signature", deployedAddress);
 
   // const [buyer] = await ethers.getSigners();
   // const buyerAddress = buyer.address
@@ -176,38 +202,34 @@ async function createEscrow(contract: P2PEscrow) {
 
   console.log('EXT_TRADE_RANDOM: ', EXT_TRADE_RANDOM)
 
-  const result = await contract.createEscrowNative(buyerAddress, ESCROW_VALUE, EXT_TRADE_RANDOM, {
+  const result = await p2pContract.createEscrowNative(buyerAddress, ESCROW_VALUE, EXT_TRADE_RANDOM, {
     value: ESCROW_TOTAL_VALUE,
   })
 
   console.log(result)
 }
 
-async function whitelistCurrency(contract: P2PEscrow) {
+async function whitelistCurrency() {
+  const adminContract = await ethers.getContractAt("AdminFacet", deployedAddress);
+
   // const USDT = '0xc2132d05d31c914a87c6611c10748aeb04b58e8f' // MAINET
   const USDT = '0x0F73cc99dE9bF6657C46B55fD666b82FcB9dbD2C' // TESTNET
 
-  const res = await contract.whitelistedCurrencies(ZeroAddress)
+  const res = await adminContract.getWhitelistedCurrencies(ZeroAddress)
   console.log(res)
 
-  await contract.setWhitelistedCurrencies(ZeroAddress, true)
+  await adminContract.setWhitelistedCurrencies(ZeroAddress, true)
   // await contract.setWhitelistedCurrencies(USDT, true)
 }
 
 async function main() {
-  const contract = await ethers.getContractAt("P2PEscrow", deployedAddress);
+  const [account1, account2, account3, account4, account5] = await ethers.getSigners();
+  console.log(account1.address, account2.address, account3.address, account4.address, account5.address)
 
-  // const owner = await getOwner(contract)
-  // const arbitrator = await getArbitrator(contract)
-  // const fee = await escrowFee(contract)
-  // console.log(owner)
-  // console.log(arbitrator)
-  // console.log(fee)
+  await getArbitrator()
 
-  // const [account1, account2, account3, account4] = await ethers.getSigners();
-  // console.log(account1.address, account2.address, account3.address, account4.address)
 
-  whitelistCurrency(contract)
+  // whitelistCurrency(contract)
 
   // await getFee(contract)
 

@@ -12,3 +12,5 @@ artifacts
 #hash
 ..gpg
 .gpg
+
+.DS_Store

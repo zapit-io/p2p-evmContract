@@ -6,7 +6,7 @@ error InvalidSignatureLength();
 /**
  * @dev Library for common functions for fixed auction
  */
-library Signature {
+contract SignatureFacet {
   /// @notice Getting a message-hash
   /// @param _message Message that was signed
   /// @param recipient Recipient address

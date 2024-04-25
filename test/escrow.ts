@@ -9,7 +9,7 @@ describe('Tests', async function () {
   let diamondAddress: any;
   let ownershipFacet: any;
   let accounts: any;
-  let escrowFacet: any, adminFacet: any, signatureLib: any;
+  let escrowFacet: any, adminFacet: any, signatureFacet: any;
   let deployer: any, arbitrator: any, buyer: any, seller: any, feeAccount: any;
   let FEES: any;
 
@@ -19,12 +19,11 @@ describe('Tests', async function () {
 
     await deployFacets(res)
     accounts = await ethers.getSigners()
-    escrowFacet = await ethers.getContractAt('P2PEscrow', diamondAddress)
 
+    escrowFacet = await ethers.getContractAt('EscrowFacet', diamondAddress)
     ownershipFacet = await ethers.getContractAt('OwnershipFacet', diamondAddress)
     adminFacet = await ethers.getContractAt('AdminFacet', diamondAddress)
-
-    signatureLib = await ethers.deployContract('Signature')
+    signatureFacet = await ethers.getContractAt('SignatureFacet', diamondAddress)
 
     // Contracts are deployed using the first signer/account by default
     const [_deployer, _arbitrator, _buyer, _seller, _feeAccount] = await ethers.getSigners();
@@ -99,7 +98,7 @@ describe('Tests', async function () {
     assert(res == true)
   })
 
-  it("P2PEscrow: Create and Complete Native currency trade", async () => {
+  it("EscrowFacet: Create and Complete Native currency trade", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("123");
     const ETHERS_VALUE = 1000;
 
@@ -129,10 +128,10 @@ describe('Tests', async function () {
     assert(escrowStruct[7] == true, "Escrow is not active")
 
     // // escrowFacet.
-    const messageHash = await signatureLib.getMessageHash(tradeHash, buyer.address)
+    const messageHash = await signatureFacet.getMessageHash(tradeHash, buyer.address)
     const sig = await seller.signMessage(ethers.getBytes(messageHash));
-    const signedMessageHash = await signatureLib.getEthSignedMessageHash(messageHash);
-    const _signatory = await signatureLib.recoverSigner(signedMessageHash, sig);
+    const signedMessageHash = await signatureFacet.getEthSignedMessageHash(messageHash);
+    const _signatory = await signatureFacet.recoverSigner(signedMessageHash, sig);
 
     assert(_signatory == seller.address, "Invalid signatory")
 
@@ -155,7 +154,7 @@ describe('Tests', async function () {
     })
   })
 
-  it("P2PEscrow: Create and Cancel order", async () => {
+  it("EscrowFacet: Create and Cancel order", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("234");
     const ETHERS_VALUE = 1;
 
@@ -201,7 +200,7 @@ describe('Tests', async function () {
     })
   })
 
-  it("P2PEscrow: Create and Claim dispute (Buyer)", async () => {
+  it("EscrowFacet: Create and Claim dispute (Buyer)", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("345");
     const ETHERS_VALUE = 1;
 
@@ -231,10 +230,10 @@ describe('Tests', async function () {
 
 
     // escrowFacet.
-    const messageHash = await signatureLib.getMessageHash(tradeHash, buyer.address)
+    const messageHash = await signatureFacet.getMessageHash(tradeHash, buyer.address)
     const sig = await arbitrator.signMessage(ethers.getBytes(messageHash));
-    const signedMessageHash = await signatureLib.getEthSignedMessageHash(messageHash);
-    const _signatory = await signatureLib.recoverSigner(signedMessageHash, sig);
+    const signedMessageHash = await signatureFacet.getEthSignedMessageHash(messageHash);
+    const _signatory = await signatureFacet.recoverSigner(signedMessageHash, sig);
 
     assert(_signatory == arbitrator.address, "Invalid signatory")
 
@@ -256,7 +255,7 @@ describe('Tests', async function () {
     })
   })
 
-  it("P2PEscrow: Create and Claim dispute (Seller)", async () => {
+  it("EscrowFacet: Create and Claim dispute (Seller)", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("456");
     const ETHERS_VALUE = 1;
 
@@ -286,10 +285,10 @@ describe('Tests', async function () {
     assert(escrowStruct[7] == true, "Escrow is not active")
 
     // escrowFacet.
-    const messageHash = await signatureLib.getMessageHash(tradeHash, seller.address)
+    const messageHash = await signatureFacet.getMessageHash(tradeHash, seller.address)
     const sig = await arbitrator.signMessage(ethers.getBytes(messageHash));
-    const signedMessageHash = await signatureLib.getEthSignedMessageHash(messageHash);
-    const _signatory = await signatureLib.recoverSigner(signedMessageHash, sig);
+    const signedMessageHash = await signatureFacet.getEthSignedMessageHash(messageHash);
+    const _signatory = await signatureFacet.recoverSigner(signedMessageHash, sig);
 
     assert(_signatory == arbitrator.address, "Invalid signatory")
 

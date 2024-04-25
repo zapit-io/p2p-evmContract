@@ -2,8 +2,10 @@ const { ethers } = require('hardhat')
 const { getSelectors, FacetCutAction } = require('./libraries/diamond.js')
 
 // Polygon
-const P2PEscrowAddress = '0x095876F31b07C91d92E1C6414169f2e252789D0d'
-const AdminFacetAddress = '0x4aDC11C8e2418aB07D7931A41d48EC102C1DBDeE'
+const EscrowFacet = '0x1b12b7235F0cc5D8892eA8c97Fefda4Ba9Bd6bDB'
+const AdminFacet = '0xEabBC98c37C33Ba5D93DF44563AeC6fDBFeDFEb3'
+
+// Avalanche
 
 async function main(params) {
 
@@ -19,7 +21,8 @@ async function main(params) {
   // ----------------
 
   const FacetNames = [
-    'P2PEscrow',
+    // 'SignatureFacet',
+    'EscrowFacet',
     'AdminFacet'
   ]
 
@@ -27,21 +30,22 @@ async function main(params) {
   for (const FacetName of FacetNames) {
     let Facet, facet
 
-    if (FacetName == 'P2PEscrow') {
-      const Library = await ethers.getContractFactory("Signature");
-      const library = await Library.deploy();
-      console.log('Signature Librarary deployed: ', library.target)
+    // if (FacetName == 'P2PEscrow') {
+    //   const Library = await ethers.getContractFactory("Signature");
+    //   const library = await Library.deploy();
+    //   console.log('Signature Librarary deployed: ', library.target)
 
-      facet = await ethers.deployContract(FacetName, {
-        libraries: {
-          Signature: library.target,
-        }
-      });
-      console.log('Facet: ', FacetName, 'deployed at: ', facet.target)
-    } else {
-      facet = await ethers.deployContract(FacetName);
-      console.log('Facet: ', FacetName, 'deployed at: ', facet.target)
-    }
+    //   facet = await ethers.deployContract(FacetName, {
+    //     libraries: {
+    //       Signature: library.target,
+    //     }
+    //   });
+    //   console.log(`const ${FacetName} = '${facet.target}'`)
+    // } else {
+    facet = await ethers.deployContract(FacetName);
+
+    console.log(`const ${FacetName} = '${facet.target}'`)
+    // }
 
     cut.push({
       facetAddress: facet.target,
@@ -56,8 +60,8 @@ async function main(params) {
   // const cut = []
 
   // const FacetNamesObj = {
-  //   'P2PEscrow': P2PEscrowAddress,
-  //   'AdminFacet': AdminFacetAddress
+  //   'EscrowFacet': EscrowFacet,
+  //   // 'AdminFacet': AdminFacet,
   // }
 
   // for (const [name, address] of Object.entries(FacetNamesObj)) {
@@ -68,6 +72,8 @@ async function main(params) {
   //     functionSelectors: getSelectors(facet)
   //   })
   // }
+
+  // console.log(cut)
 
   try {
 
@@ -106,11 +112,17 @@ async function main(params) {
 // and properly handle errors.
 if (require.main === module) {
 
-  // Polygon
-  const deployedAddress = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3' // Diamond
-  const diamondInit = '0x3A8dbfa87f2940C1307C289dA836423653D67201'
+  // // Polygon
+  const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935' // Diamond
+  const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+
+  // Avalanche
+  // const deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
+  // const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
+
 
   main({ diamondAddr: deployedAddress, diamondInitAddr: diamondInit })
+    // main()
     .then(() => process.exit(0))
     .catch(error => {
       console.error(error)

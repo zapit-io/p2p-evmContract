@@ -7,13 +7,13 @@ async function main() {
   const contractOwner = accounts[0]
 
   const diamondCutFacet = await ethers.deployContract("DiamondCutFacet");
-  console.log('DiamondCutFacet deployed:', diamondCutFacet.target)
+  console.log(`const diamondCutFacet = '${diamondCutFacet.target}'`)
 
   const diamond = await ethers.deployContract("Diamond", [contractOwner.address]);
-  console.log('Diamond deployed:', diamond.target)
+  console.log(`const deployedAddress = '${diamond.target}'`)
 
   const diamondInit = await ethers.deployContract("DiamondInit");
-  console.log('DiamondInit deployed:', diamondInit.target)
+  console.log(`const deployedAddress = '${diamondInit.target}'`)
 
   return {
     'diamondAddr': await diamond.target,

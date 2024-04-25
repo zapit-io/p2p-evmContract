@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 import "../shared/interfaces/IERC20.sol";
 import { AppStorage, Escrow, EscrowDoesNotExist, ExtUniqueIdentifierExists, IncorrectEth, InvalidArbitratorSignature, InvalidSellerSignature, LibAppStorage, LibEvents, Modifiers, NotBuyer, TradeExists, TradeWithSelf } from "../shared/libraries/LibAppStorage.sol";
-import { Signature } from "../shared/libraries/Signature.sol";
+import { SignatureFacet } from "../shared/facets/SignatureFacet.sol";
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
-contract P2PEscrow is Modifiers {
+contract EscrowFacet is Modifiers, SignatureFacet {
   /***********************
 	+   User-Functions   +
 	***********************/
@@ -107,9 +107,9 @@ contract P2PEscrow is Modifiers {
     }
 
     // Concat a message out of the tradeID and the msg.sender
-    bytes32 messageHash = Signature.getMessageHash(_tradeID, msg.sender);
-    bytes32 signedMessageHash = Signature.getEthSignedMessageHash(messageHash);
-    address _signatory = Signature.recoverSigner(signedMessageHash, _sig);
+    bytes32 messageHash = getMessageHash(_tradeID, msg.sender);
+    bytes32 signedMessageHash = getEthSignedMessageHash(messageHash);
+    address _signatory = recoverSigner(signedMessageHash, _sig);
 
     // @notice: The provided signature should be from the arbitrator,
     // enabling the party whose dispute was resolved in their favor to claim it.
@@ -159,10 +159,10 @@ contract P2PEscrow is Modifiers {
     }
 
     // concat a message out of the tradeID and the msg.sender
-    bytes32 messageHash = Signature.getMessageHash(_tradeID, _escrow.buyer);
+    bytes32 messageHash = getMessageHash(_tradeID, _escrow.buyer);
 
-    bytes32 signedMessageHash = Signature.getEthSignedMessageHash(messageHash);
-    address _signatory = Signature.recoverSigner(signedMessageHash, _sig);
+    bytes32 signedMessageHash = getEthSignedMessageHash(messageHash);
+    address _signatory = recoverSigner(signedMessageHash, _sig);
 
     // The signature provided must be from the seller
     if (_signatory != _escrow.seller) {

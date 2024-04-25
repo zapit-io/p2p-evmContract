@@ -26,6 +26,7 @@ module.exports = {
       // url: `https://polygon-mainnet.g.alchemy.com/v2/dO9QKkdy0B2nQ4DZVVal7aERxt0kKEUW`,
       url: `https://polygon-mainnet.g.alchemy.com/v2/9OBY09nGJOsrK1JzrpfPK2JsV8oIQVup`,
       chainId: 137,
+      gasPrice: 83818406252,
       accounts: {
         mnemonic: process.env.MNEMONIC,
         count: 6,

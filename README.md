@@ -32,7 +32,9 @@ AdminFacet Contract deplpyed: 0x4aDC11C8e2418aB07D7931A41d48EC102C1DBDeE
 DiamondCutFacet deployed: 0x4B2cD84D14720A6FFE23f9332B069E02860Cdc7b
 Diamond deployed: 0xc2EDC3ac51D82336b39B08C7E68201be69171113
 DiamondInit deployed: 0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3
-
+SignatureFacet Contract deployed: '0x3A8dbfa87f2940C1307C289dA836423653D67201'
+P2PEscrow Contract deployed: '0x47d8eB2497Fed7f6a28a6000dac18415112F9A94'
+AdminFacet Contract deplpyed: '0x095876F31b07C91d92E1C6414169f2e252789D0d'
 ```
 
 #### Deployed Addresses

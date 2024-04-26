@@ -2,10 +2,13 @@ const { ethers } = require('hardhat')
 const { getSelectors, FacetCutAction } = require('./libraries/diamond.js')
 
 // Polygon
-const EscrowFacet = '0x1b12b7235F0cc5D8892eA8c97Fefda4Ba9Bd6bDB'
-const AdminFacet = '0xEabBC98c37C33Ba5D93DF44563AeC6fDBFeDFEb3'
+// const EscrowFacet = '0x1b12b7235F0cc5D8892eA8c97Fefda4Ba9Bd6bDB'
+// const AdminFacet = '0xEabBC98c37C33Ba5D93DF44563AeC6fDBFeDFEb3'
 
 // Avalanche
+// const SignatureFacet = '0x3A8dbfa87f2940C1307C289dA836423653D67201'
+// const EscrowFacet = '0x47d8eB2497Fed7f6a28a6000dac18415112F9A94'
+// const AdminFacet = '0x095876F31b07C91d92E1C6414169f2e252789D0d'
 
 async function main(params) {
 
@@ -21,51 +24,32 @@ async function main(params) {
   // ----------------
 
   const FacetNames = [
-    // 'SignatureFacet',
+    'SignatureFacet',
     'EscrowFacet',
     'AdminFacet'
   ]
 
-  const cut = []
-  for (const FacetName of FacetNames) {
-    let Facet, facet
-
-    // if (FacetName == 'P2PEscrow') {
-    //   const Library = await ethers.getContractFactory("Signature");
-    //   const library = await Library.deploy();
-    //   console.log('Signature Librarary deployed: ', library.target)
-
-    //   facet = await ethers.deployContract(FacetName, {
-    //     libraries: {
-    //       Signature: library.target,
-    //     }
-    //   });
-    //   console.log(`const ${FacetName} = '${facet.target}'`)
-    // } else {
-    facet = await ethers.deployContract(FacetName);
-
-    console.log(`const ${FacetName} = '${facet.target}'`)
-    // }
-
-    cut.push({
-      facetAddress: facet.target,
-      action: FacetCutAction.Add,
-      functionSelectors: getSelectors(facet)
-    })
-  }
-
-  // ----------------
-  // When contracts are already deployed
-  // ----------------
   // const cut = []
+  // for (const FacetName of FacetNames) {
+  //   let Facet, facet
 
-  // const FacetNamesObj = {
-  //   'EscrowFacet': EscrowFacet,
-  //   // 'AdminFacet': AdminFacet,
-  // }
+  //   // if (FacetName == 'P2PEscrow') {
+  //   //   const Library = await ethers.getContractFactory("Signature");
+  //   //   const library = await Library.deploy();
+  //   //   console.log('Signature Librarary deployed: ', library.target)
 
-  // for (const [name, address] of Object.entries(FacetNamesObj)) {
-  //   const facet = await ethers.getContractAt(name, address)
+  //   //   facet = await ethers.deployContract(FacetName, {
+  //   //     libraries: {
+  //   //       Signature: library.target,
+  //   //     }
+  //   //   });
+  //   //   console.log(`const ${FacetName} = '${facet.target}'`)
+  //   // } else {
+  //   facet = await ethers.deployContract(FacetName);
+
+  //   console.log(`const ${FacetName} = '${facet.target}'`)
+  //   // }
+
   //   cut.push({
   //     facetAddress: facet.target,
   //     action: FacetCutAction.Add,
@@ -73,7 +57,27 @@ async function main(params) {
   //   })
   // }
 
-  // console.log(cut)
+  // ----------------
+  // When contracts are already deployed
+  // ----------------
+  const cut = []
+
+  const FacetNamesObj = {
+    // 'SignatureFacet': SignatureFacet
+    // 'EscrowFacet': EscrowFacet,
+    // 'AdminFacet': AdminFacet,
+  }
+
+  for (const [name, address] of Object.entries(FacetNamesObj)) {
+    const facet = await ethers.getContractAt(name, address)
+    cut.push({
+      facetAddress: facet.target,
+      action: FacetCutAction.Add,
+      functionSelectors: getSelectors(facet)
+    })
+  }
+
+  console.log(cut)
 
   try {
 
@@ -113,12 +117,12 @@ async function main(params) {
 if (require.main === module) {
 
   // // Polygon
-  const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935' // Diamond
-  const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+  // const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935' // Diamond
+  // const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
 
   // Avalanche
-  // const deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
-  // const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
+  const deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
+  const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
 
 
   main({ diamondAddr: deployedAddress, diamondInitAddr: diamondInit })

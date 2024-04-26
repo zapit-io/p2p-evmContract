@@ -4,14 +4,14 @@ import { ZeroAddress } from "ethers";
 
 
 // Polygon
-const diamondCutFacet = '0x26C21884F6cD77A0a129852E73C88F2944405E88'
-const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
-const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+// const diamondCutFacet = '0x26C21884F6cD77A0a129852E73C88F2944405E88'
+// const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
+// const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
 
 // Avalanche
-// const diamondCutFacet = '0x4B2cD84D14720A6FFE23f9332B069E02860Cdc7b'
-// const deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
-// const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
+const diamondCutFacet = '0x4B2cD84D14720A6FFE23f9332B069E02860Cdc7b'
+const deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
+const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
 
 // ---------------------------------------------
 // ---------------------------------------------
@@ -45,7 +45,7 @@ async function signatureGeneration() {
 
   let res;
   res = await diamondLoupe.facets()
-  // console.log(res)
+  console.log(res)
 
   // 0xa0daEef8BCb2aBB8Fdb010F5FC6Ef010615CAf6C
 
@@ -138,6 +138,13 @@ async function cancelOrder() {
 
   const result = await p2pContract.buyerCancel(tradeId)
   console.log(result)
+}
+
+async function getEscrow() {
+  const tradeId = '0xd3839ba717555d983cd8eb1452cdd0a3888d8679da3040d437b730774546ce9a'
+  const adminContract = await ethers.getContractAt("AdminFacet", deployedAddress);
+  const esc = await adminContract.getEscrow(tradeId)
+  console.log(esc)
 }
 
 async function executeOrder() {
@@ -252,14 +259,15 @@ async function main() {
 
   // await getArbitrator()
 
+  // await getEscrow()
 
-  await whitelistCurrency()
+  // await whitelistCurrency()
 
-  // await getFee(contract)
+  // console.log(await escrowFee())
 
   // await getArbitrator(contract)
   // await setArbitrator(contract)
-  // await signatureGeneration()
+  await signatureGeneration()
 
   // await createEscrow()
 

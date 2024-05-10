@@ -10,6 +10,11 @@ const { getSelectors, FacetCutAction } = require('./libraries/diamond.js')
 // const EscrowFacet = '0x47d8eB2497Fed7f6a28a6000dac18415112F9A94'
 // const AdminFacet = '0x095876F31b07C91d92E1C6414169f2e252789D0d'
 
+// Ethereum
+// const SignatureFacet = '0x4B2cD84D14720A6FFE23f9332B069E02860Cdc7b'
+// const EscrowFacet = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
+// const AdminFacet = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
+
 async function main(params) {
 
   let diamondAddr = params.diamondAddr
@@ -24,58 +29,58 @@ async function main(params) {
   // ----------------
 
   const FacetNames = [
-    'SignatureFacet',
-    'EscrowFacet',
+    // 'SignatureFacet',
+    // 'EscrowFacet',
     'AdminFacet'
   ]
 
-  // const cut = []
-  // for (const FacetName of FacetNames) {
-  //   let Facet, facet
-
-  //   // if (FacetName == 'P2PEscrow') {
-  //   //   const Library = await ethers.getContractFactory("Signature");
-  //   //   const library = await Library.deploy();
-  //   //   console.log('Signature Librarary deployed: ', library.target)
-
-  //   //   facet = await ethers.deployContract(FacetName, {
-  //   //     libraries: {
-  //   //       Signature: library.target,
-  //   //     }
-  //   //   });
-  //   //   console.log(`const ${FacetName} = '${facet.target}'`)
-  //   // } else {
-  //   facet = await ethers.deployContract(FacetName);
-
-  //   console.log(`const ${FacetName} = '${facet.target}'`)
-  //   // }
-
-  //   cut.push({
-  //     facetAddress: facet.target,
-  //     action: FacetCutAction.Add,
-  //     functionSelectors: getSelectors(facet)
-  //   })
-  // }
-
-  // ----------------
-  // When contracts are already deployed
-  // ----------------
   const cut = []
+  for (const FacetName of FacetNames) {
+    let Facet, facet
 
-  const FacetNamesObj = {
-    // 'SignatureFacet': SignatureFacet
-    // 'EscrowFacet': EscrowFacet,
-    // 'AdminFacet': AdminFacet,
-  }
+    // if (FacetName == 'P2PEscrow') {
+    //   const Library = await ethers.getContractFactory("Signature");
+    //   const library = await Library.deploy();
+    //   console.log('Signature Librarary deployed: ', library.target)
 
-  for (const [name, address] of Object.entries(FacetNamesObj)) {
-    const facet = await ethers.getContractAt(name, address)
+    //   facet = await ethers.deployContract(FacetName, {
+    //     libraries: {
+    //       Signature: library.target,
+    //     }
+    //   });
+    //   console.log(`const ${FacetName} = '${facet.target}'`)
+    // } else {
+    facet = await ethers.deployContract(FacetName);
+
+    console.log(`const ${FacetName} = '${facet.target}'`)
+    // }
+
     cut.push({
       facetAddress: facet.target,
       action: FacetCutAction.Add,
       functionSelectors: getSelectors(facet)
     })
   }
+
+  // ----------------
+  // When contracts are already deployed
+  // ----------------
+  // const cut = []
+
+  // const FacetNamesObj = {
+  //   // 'SignatureFacet': SignatureFacet
+  //   // 'EscrowFacet': EscrowFacet,
+  //   // 'AdminFacet': AdminFacet,
+  // }
+
+  // for (const [name, address] of Object.entries(FacetNamesObj)) {
+  //   const facet = await ethers.getContractAt(name, address)
+  //   cut.push({
+  //     facetAddress: facet.target,
+  //     action: FacetCutAction.Add,
+  //     functionSelectors: getSelectors(facet)
+  //   })
+  // }
 
   console.log(cut)
 
@@ -120,9 +125,13 @@ if (require.main === module) {
   // const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935' // Diamond
   // const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
 
-  // Avalanche
-  const deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
-  const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
+  // // Avalanche
+  // const deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
+  // const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
+
+  // Ethereum
+  const deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
+  const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
 
 
   main({ diamondAddr: deployedAddress, diamondInitAddr: diamondInit })

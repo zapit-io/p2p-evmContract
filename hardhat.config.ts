@@ -22,6 +22,14 @@ module.exports = {
     }
   },
   networks: {
+    ethereum: {
+      url: `https://eth-mainnet.g.alchemy.com/v2/KjmigFHTC_UXoxQ32lfBw2oDX1RMR0AY`,
+      chainId: 1,
+      accounts: {
+        mnemonic: process.env.MNEMONIC,
+        count: 6,
+      },
+    },
     polygon: {
       // url: `https://polygon-mainnet.g.alchemy.com/v2/dO9QKkdy0B2nQ4DZVVal7aERxt0kKEUW`,
       url: `https://polygon-mainnet.g.alchemy.com/v2/9OBY09nGJOsrK1JzrpfPK2JsV8oIQVup`,

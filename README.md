@@ -37,6 +37,16 @@ P2PEscrow Contract deployed: '0x47d8eB2497Fed7f6a28a6000dac18415112F9A94'
 AdminFacet Contract deplpyed: '0x095876F31b07C91d92E1C6414169f2e252789D0d'
 ```
 
+### Ethereum
+```
+DiamondCutFacet deployed: 0xF564D03eE63b79AB41653030C090582ebfFf887E
+Diamond deployed: 0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014
+DiamondInit deployed: 0x942876460D7065bD748eDeAe32604Ad02577CA75
+SignatureFacet Contract deployed: '0x4B2cD84D14720A6FFE23f9332B069E02860Cdc7b'
+P2PEscrow Contract deployed: '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
+AdminFacet Contract deplpyed: '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
+```
+
 #### Deployed Addresses
 
 - Polygon: `0x0`

@@ -29,9 +29,10 @@ async function main(params) {
   // ----------------
 
   const FacetNames = [
-    // 'SignatureFacet',
-    // 'EscrowFacet',
-    'AdminFacet'
+    'SignatureFacet',
+    'EscrowFacet',
+    'AdminFacet',
+    'EscrowFacetERC20'
   ]
 
   const cut = []
@@ -130,8 +131,8 @@ if (require.main === module) {
   // const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
 
   // Ethereum
-  const deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
-  const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
+  // const deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
+  // const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
 
 
   main({ diamondAddr: deployedAddress, diamondInitAddr: diamondInit })

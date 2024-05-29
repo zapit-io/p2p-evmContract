@@ -1,30 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import "../shared/interfaces/IERC20.sol";
-import { AppStorage, Escrow, EscrowDoesNotExist, ExtUniqueIdentifierExists, IncorrectEth, InvalidArbitratorSignature, InvalidSellerSignature, LibAppStorage, LibEvents, Modifiers, NotBuyer, TradeExists, TradeWithSelf } from "../shared/libraries/LibAppStorage.sol";
+import { AppStorage, LibAppStorage, LibEvents, Modifiers, Escrow, TradeExists, IncorrectEth, EscrowDoesNotExist, TradeWithSelf, ExtUniqueIdentifierExists, InvalidArbitratorSignature, InvalidSellerSignature, NotBuyer } from "../shared/libraries/LibAppStorage.sol";
 import { SignatureFacet } from "../shared/facets/SignatureFacet.sol";
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
-contract EscrowFacet is Modifiers, SignatureFacet {
+contract EscrowFacetERC20 is Modifiers, SignatureFacet {
   /***********************
 	+   User-Functions   +
 	***********************/
 
-  /// @notice Create and fund a new escrow.
+  /// @notice Create and fund a new escrow for ERC20 token.
   /// @param _buyer The buying party
   /// @param _value The amount of the escrow, exclusive of the fee
+  /// @param _currency The address of the currency to be used for the escrow
   /// @param _extUniqueIdentifier The external unique identifier, could be hash of the escrow
-  function createEscrowNative(
+  function createEscrowERC20(
     address _buyer,
     uint256 _value,
+    address _currency,
     bytes32 _extUniqueIdentifier
   )
     external
     payable
     nonReentrant
     nonContract
-    onlyWhitelistedCurrencies(address(0))
+    onlyWhitelistedCurrencies(_currency)
   {
     AppStorage storage ds = LibAppStorage.diamondStorage();
     bytes32 trade = ds.extIdentifierToEscrow[_extUniqueIdentifier];
@@ -51,29 +53,36 @@ contract EscrowFacet is Modifiers, SignatureFacet {
       )
     );
 
-    // Checking if the trade already exists
+    // checking if the trade already exists
     if (ds.escrows[_tradeID].exists) {
       revert TradeExists();
     }
 
-    // Check transaction value against passed _value and make sure it is not 0
     /**
-     * @description: value + seller fees = msg.value
+     * @description value + seller fees = msg.value
      */
     uint256 _sellerFees = (_value * ds.escrowFeeBP) / (10000 * 2);
 
-    // The value send should be equal to the value of the trade + the seller fee
-    if (msg.value == 0 || msg.value != (_value + _sellerFees)) {
-      revert IncorrectEth();
-    }
+    uint256 toTransfer = _value + _sellerFees;
+    require(
+      IERC20(_currency).balanceOf(address(this)) >= toTransfer,
+      "Insufficient amount"
+    );
+    require(
+      IERC20(_currency).transferFrom(msg.sender, address(this), toTransfer),
+      "Currency not approved"
+    );
+
+    // To prevent stack too deep.
+    uint256 value = _value;
 
     // Add the escrow to the public mapping
     ds.escrows[_tradeID] = Escrow(
       _extUniqueIdentifier,
       payable(_buyer),
       payable(msg.sender),
-      address(0),
-      _value,
+      _currency,
+      value,
       block.number,
       ds.escrowFeeBP,
       true
@@ -81,22 +90,23 @@ contract EscrowFacet is Modifiers, SignatureFacet {
 
     // Store the unique identifier key and map it to trade ID.
     ds.extIdentifierToEscrow[_extUniqueIdentifier] = _tradeID;
+
     emit LibEvents.Created(
       _tradeID,
       msg.sender,
       _buyer,
       _extUniqueIdentifier,
-      address(0),
-      _value,
+      _currency,
+      value,
       ds.escrowFeeBP
     );
   }
 
-  /// @notice Called by the favourable party for whom the order has been resolved by the arbitrator.
+  /// @notice Called by the favourable party for whom the order has been resolved by the arbitrator
   /// @param _tradeID Escrow "tradeID" parameter
   /// @param _sig Signature from the arbiter, signing TradeID + address of the party that is getting the
   /// dispute resolved in their favour
-  function claimDisputedOrder(
+  function claimDisputedOrderERC20(
     bytes32 _tradeID,
     bytes memory _sig
   ) external nonReentrant nonContract {
@@ -130,11 +140,18 @@ contract EscrowFacet is Modifiers, SignatureFacet {
 
     // If the seller is claiming the funds then transfer the entire amount including the fee paid earlier
     if (msg.sender == _escrow.seller) {
-      payable(_escrow.seller).transfer(_escrow.value + _tradeFeeAmount);
+      IERC20(_escrow.currency).transfer(
+        _escrow.seller,
+        _escrow.value + _tradeFeeAmount
+      );
     } else {
       // If it is resolved in favour of the buyer then this is a 'completed' trade and we charge a fee
-      payable(_escrow.buyer).transfer(_escrow.value - _tradeFeeAmount);
-      payable(s.feeAddress).transfer(_tradeFeeAmount * 2);
+      IERC20(_escrow.currency).transfer(
+        _escrow.buyer,
+        _escrow.value - _tradeFeeAmount
+      );
+      // Transfer the fee to fee address
+      IERC20(_escrow.currency).transfer(s.feeAddress, _tradeFeeAmount * 2);
     }
 
     emit LibEvents.DisputeClaimed(
@@ -165,30 +182,31 @@ contract EscrowFacet is Modifiers, SignatureFacet {
     bytes32 signedMessageHash = getEthSignedMessageHash(messageHash);
     address _signatory = recoverSigner(signedMessageHash, _sig);
 
-    // The signature provided must be from the seller
     if (_signatory != _escrow.seller) {
       revert InvalidSellerSignature();
     }
 
-    // Mark the escrow exists as false.
+    // transfer the funds to the msg.sender
     _escrow.exists = false;
 
     // Gather the fee that is supposed to be transferred when the buyer executes/completes the order.
     // Since the seller already funded the escrow the value added to the escrow was value + sellerFee
     // So the amount to be transferred to the buyer should be value - buyer fee
-    uint256 _buyerFees = (_escrow.value * _escrow.fee) / (10000 * 2);
-    uint256 _totalTransferValue = _escrow.value - _buyerFees;
-    payable(_escrow.buyer).transfer(_totalTransferValue);
+    uint256 _tradeFeeAmount = (_escrow.value * _escrow.fee) / (10000 * 2);
+    uint256 _totalTransferValue = _escrow.value - _tradeFeeAmount;
 
+    IERC20(_escrow.currency).transfer(_escrow.buyer, _totalTransferValue);
     // Half the fee is paid by the buyer and half is paid by the seller
-    payable(s.feeAddress).transfer(_buyerFees * 2);
+    IERC20(_escrow.currency).transfer(s.feeAddress, _tradeFeeAmount * 2);
 
     emit LibEvents.TradeCompleted(_tradeID, _escrow.extUniqueIdentifier, _sig);
   }
 
-  ///@notice Called by the buyer to cancel the escrow and returning the funds to the seller
+  ///@notice Called buy the buyer to cancel the escrow and returning the funds to the seller
   ///@param _tradeID Escrow "tradeID" parameter
-  function buyerCancel(bytes32 _tradeID) external nonReentrant nonContract {
+  function buyerCancelERC20(
+    bytes32 _tradeID
+  ) external nonReentrant nonContract {
     AppStorage storage ds = LibAppStorage.diamondStorage();
     Escrow storage _escrow = ds.escrows[_tradeID];
 
@@ -207,7 +225,7 @@ contract EscrowFacet is Modifiers, SignatureFacet {
     // So the amount to be transferred back to the seller should be value + seller fee
     uint256 _sellerFees = (_escrow.value * _escrow.fee) / (10000 * 2);
     uint256 _totalTransferValue = _escrow.value + _sellerFees;
-    payable(_escrow.seller).transfer(_totalTransferValue);
+    IERC20(_escrow.currency).transfer(_escrow.seller, _totalTransferValue);
 
     emit LibEvents.CancelledByBuyer(_tradeID, _escrow.extUniqueIdentifier);
   }

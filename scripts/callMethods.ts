@@ -4,9 +4,9 @@ import { ZeroAddress } from "ethers";
 
 
 // Polygon
-const diamondCutFacet = '0x26C21884F6cD77A0a129852E73C88F2944405E88'
-const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
-const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+// const diamondCutFacet = '0x26C21884F6cD77A0a129852E73C88F2944405E88'
+// const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
+// const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
 
 // Avalanche
 // const diamondCutFacet = '0x4B2cD84D14720A6FFE23f9332B069E02860Cdc7b'
@@ -14,9 +14,9 @@ const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
 // const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
 
 // Ethereum
-// const diamondCutFacet = '0xF564D03eE63b79AB41653030C090582ebfFf887E'
-// const deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
-// const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
+const diamondCutFacet = '0xF564D03eE63b79AB41653030C090582ebfFf887E'
+const deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
+const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
 
 
 // ---------------------------------------------
@@ -30,6 +30,13 @@ async function getOwner() {
 async function setArbitrator() {
   const contract = await ethers.getContractAt("AdminFacet", deployedAddress);
   return await contract.setArbitrator('0xA53E13f5724DC9b6F4a576089Fa669de68F24D1D')
+}
+
+async function setFeeAddress() {
+  const contract = await ethers.getContractAt("AdminFacet", deployedAddress);
+  const res = await contract.getFeeAddress()
+  console.log(res)
+  // await contract.setFeeAddress('0x274b3608f837f9102cCcC89Ed2312299e3FD9fE5')
 }
 
 async function getArbitrator() {
@@ -261,7 +268,9 @@ async function whitelistCurrency() {
 
 async function main() {
   const [account1, account2, account3, account4, account5] = await ethers.getSigners();
-  console.log(account1.address, account2.address, account3.address, account4.address, account5.address)
+  // console.log(account1.address, account2.address, account3.address, account4.address, account5.address)
+
+  await setFeeAddress()
 
   // await getArbitrator()
 
@@ -269,7 +278,7 @@ async function main() {
 
   // await whitelistCurrency()
 
-  console.log(await escrowFee())
+  // console.log(await escrowFee())
 
   // await getArbitrator(contract)
   // await setArbitrator(contract)

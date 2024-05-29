@@ -9,7 +9,7 @@ describe('Tests', async function () {
   let diamondAddress: any;
   let ownershipFacet: any;
   let accounts: any;
-  let escrowFacet: any, adminFacet: any, signatureFacet: any;
+  let escrowFacet: any, escrowFacetERC20: any, adminFacet: any, signatureFacet: any;
   let deployer: any, arbitrator: any, buyer: any, seller: any, feeAccount: any;
   let FEES: any;
 
@@ -17,10 +17,13 @@ describe('Tests', async function () {
     let res = await deployDiamond()
     diamondAddress = res['diamondAddr']
 
+    console.log(res)
+
     await deployFacets(res)
     accounts = await ethers.getSigners()
 
     escrowFacet = await ethers.getContractAt('EscrowFacet', diamondAddress)
+    escrowFacetERC20 = await ethers.getContractAt('EscrowFacetERC20', diamondAddress)
     ownershipFacet = await ethers.getContractAt('OwnershipFacet', diamondAddress)
     adminFacet = await ethers.getContractAt('AdminFacet', diamondAddress)
     signatureFacet = await ethers.getContractAt('SignatureFacet', diamondAddress)

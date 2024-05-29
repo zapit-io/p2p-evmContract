@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import "../shared/interfaces/IERC20.sol";
-import { AppStorage, LibAppStorage, LibEvents, Modifiers, Escrow, TradeExists, IncorrectEth, EscrowDoesNotExist, TradeWithSelf, ExtUniqueIdentifierExists, InvalidArbitratorSignature, InvalidSellerSignature, NotBuyer } from "../shared/libraries/LibAppStorage.sol";
+import { AppStorage, Escrow, EscrowDoesNotExist, ExtUniqueIdentifierExists, IncorrectEth, InvalidArbitratorSignature, InvalidSellerSignature, LibAppStorage, LibEvents, Modifiers, NotBuyer, TradeExists, TradeWithSelf } from "../shared/libraries/LibAppStorage.sol";
 import { SignatureFacet } from "../shared/facets/SignatureFacet.sol";
+import "hardhat/console.sol";
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
@@ -14,13 +15,13 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
   /// @notice Create and fund a new escrow for ERC20 token.
   /// @param _buyer The buying party
   /// @param _value The amount of the escrow, exclusive of the fee
-  /// @param _currency The address of the currency to be used for the escrow
   /// @param _extUniqueIdentifier The external unique identifier, could be hash of the escrow
+  /// @param _currency The address of the currency to be used for the escrow
   function createEscrowERC20(
     address _buyer,
     uint256 _value,
-    address _currency,
-    bytes32 _extUniqueIdentifier
+    bytes32 _extUniqueIdentifier,
+    address _currency
   )
     external
     payable
@@ -64,13 +65,16 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
     uint256 _sellerFees = (_value * ds.escrowFeeBP) / (10000 * 2);
 
     uint256 toTransfer = _value + _sellerFees;
+
+    console.logBytes32(_tradeID);
+
     require(
-      IERC20(_currency).balanceOf(address(this)) >= toTransfer,
+      IERC20(_currency).balanceOf(msg.sender) >= toTransfer,
       "Insufficient amount"
     );
     require(
       IERC20(_currency).transferFrom(msg.sender, address(this), toTransfer),
-      "Currency not approved"
+      "insufficient allowance"
     );
 
     // To prevent stack too deep.
@@ -88,8 +92,12 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
       true
     );
 
+    console.log("here");
+
     // Store the unique identifier key and map it to trade ID.
     ds.extIdentifierToEscrow[_extUniqueIdentifier] = _tradeID;
+
+    console.log("before event");
 
     emit LibEvents.Created(
       _tradeID,
@@ -165,7 +173,7 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
   /// @notice Called by the seller or any one that has the access to signature for completing the order
   /// @param _tradeID Escrow "tradeID" parameter
   /// @param _sig Signature from seller
-  function executeOrder(
+  function executeOrderERC20(
     bytes32 _tradeID,
     bytes memory _sig
   ) external nonReentrant nonContract {

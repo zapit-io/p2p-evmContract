@@ -1,5 +1,6 @@
 const { ethers } = require('hardhat')
 const { getSelectors, FacetCutAction } = require('./libraries/diamond.js')
+const { ContractFactory } = require('ethers')
 
 // Polygon
 // const EscrowFacet = '0x1b12b7235F0cc5D8892eA8c97Fefda4Ba9Bd6bDB'
@@ -30,37 +31,31 @@ async function main(params) {
 
   const FacetNames = [
     'SignatureFacet',
-    'EscrowFacet',
     'AdminFacet',
-    'EscrowFacetERC20'
+    'EscrowFacetERC20',
+    'EscrowFacet'
   ]
+
+  const selectorsToIgnore = []
 
   const cut = []
   for (const FacetName of FacetNames) {
     let Facet, facet
-
-    // if (FacetName == 'P2PEscrow') {
-    //   const Library = await ethers.getContractFactory("Signature");
-    //   const library = await Library.deploy();
-    //   console.log('Signature Librarary deployed: ', library.target)
-
-    //   facet = await ethers.deployContract(FacetName, {
-    //     libraries: {
-    //       Signature: library.target,
-    //     }
-    //   });
-    //   console.log(`const ${FacetName} = '${facet.target}'`)
-    // } else {
     facet = await ethers.deployContract(FacetName);
 
     console.log(`const ${FacetName} = '${facet.target}'`)
-    // }
-
+    const signatureFacetSelectors = getSelectors(facet, [])
     cut.push({
       facetAddress: facet.target,
       action: FacetCutAction.Add,
-      functionSelectors: getSelectors(facet)
+      functionSelectors: getSelectors(facet, selectorsToIgnore)
     })
+
+    if (FacetName == 'SignatureFacet') {
+      for (const functions of signatureFacetSelectors) {
+        selectorsToIgnore.push(functions)
+      }
+    }
   }
 
   // ----------------
@@ -82,8 +77,6 @@ async function main(params) {
   //     functionSelectors: getSelectors(facet)
   //   })
   // }
-
-  console.log(cut)
 
   try {
 

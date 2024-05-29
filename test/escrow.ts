@@ -1,5 +1,6 @@
 const { deployDiamond } = require('../scripts/deploy.js')
 const { deployFacets } = require('../scripts/deployFacets.js');
+const { deployToken } = require('../scripts/deployToken.js')
 import { assert, expect } from 'chai'
 import { ZeroAddress } from "ethers"
 import { ethers } from "hardhat";
@@ -9,7 +10,7 @@ describe('Tests', async function () {
   let diamondAddress: any;
   let ownershipFacet: any;
   let accounts: any;
-  let escrowFacet: any, escrowFacetERC20: any, adminFacet: any, signatureFacet: any;
+  let escrowFacet: any, escrowFacetERC20: any, adminFacet: any, tokenContract: any;
   let deployer: any, arbitrator: any, buyer: any, seller: any, feeAccount: any;
   let FEES: any;
 
@@ -23,10 +24,17 @@ describe('Tests', async function () {
     accounts = await ethers.getSigners()
 
     escrowFacet = await ethers.getContractAt('EscrowFacet', diamondAddress)
+
+    // console.log('escrowFacet: ', escrowFacet)
+
     escrowFacetERC20 = await ethers.getContractAt('EscrowFacetERC20', diamondAddress)
+
+    // console.log('escrowFacetERC20: ', escrowFacetERC20)
+
     ownershipFacet = await ethers.getContractAt('OwnershipFacet', diamondAddress)
     adminFacet = await ethers.getContractAt('AdminFacet', diamondAddress)
-    signatureFacet = await ethers.getContractAt('SignatureFacet', diamondAddress)
+    // escrowFacet = await ethers.getContractAt('escrowFacet', diamondAddress)
+
 
     // Contracts are deployed using the first signer/account by default
     const [_deployer, _arbitrator, _buyer, _seller, _feeAccount] = await ethers.getSigners();
@@ -35,6 +43,17 @@ describe('Tests', async function () {
     buyer = _buyer
     seller = _seller
     feeAccount = _feeAccount
+
+    const ETHERS_VALUE = 100000;
+    const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+
+    tokenContract = await deployToken()
+
+    await tokenContract.mint(deployer.address, ESCROW_VALUE)
+    await tokenContract.mint(buyer.address, ESCROW_VALUE)
+    await tokenContract.mint(seller.address, ESCROW_VALUE)
+
+    // await tokenContract.connect(account1).transfer(account2.address, 1)
   })
 
   it("ADMIN: OWNERSHIP: Should fetch the ownership of the contract", async () => {
@@ -97,7 +116,11 @@ describe('Tests', async function () {
 
   it("ADMIN: Whitelist base currency", async () => {
     await adminFacet.setWhitelistedCurrencies(ZeroAddress, true)
+    await adminFacet.setWhitelistedCurrencies(tokenContract.target, true)
+
     let res = await adminFacet.getWhitelistedCurrencies(ZeroAddress)
+    assert(res == true)
+    res = await adminFacet.getWhitelistedCurrencies(tokenContract.target)
     assert(res == true)
   })
 
@@ -115,11 +138,11 @@ describe('Tests', async function () {
     const buyerBalanceBefore = await ethers.provider.getBalance(buyer.address)
     const feeAccountBalanceBefore = await ethers.provider.getBalance(feeAccount.address)
 
-    console.log({
-      sellerBalanceBefore,
-      buyerBalanceBefore,
-      feeAccountBalanceBefore
-    })
+    // console.log({
+    //   sellerBalanceBefore,
+    //   buyerBalanceBefore,
+    //   feeAccountBalanceBefore
+    // })
 
     let res = await escrowFacet.connect(seller).createEscrowNative(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
       value: ESCROW_TOTAL_VALUE,
@@ -131,10 +154,10 @@ describe('Tests', async function () {
     assert(escrowStruct[7] == true, "Escrow is not active")
 
     // // escrowFacet.
-    const messageHash = await signatureFacet.getMessageHash(tradeHash, buyer.address)
+    const messageHash = await escrowFacet.getMessageHash(tradeHash, buyer.address)
     const sig = await seller.signMessage(ethers.getBytes(messageHash));
-    const signedMessageHash = await signatureFacet.getEthSignedMessageHash(messageHash);
-    const _signatory = await signatureFacet.recoverSigner(signedMessageHash, sig);
+    const signedMessageHash = await escrowFacet.getEthSignedMessageHash(messageHash);
+    const _signatory = await escrowFacet.recoverSigner(signedMessageHash, sig);
 
     assert(_signatory == seller.address, "Invalid signatory")
 
@@ -150,11 +173,11 @@ describe('Tests', async function () {
     const buyerBalanceAfter = await ethers.provider.getBalance(buyer.address)
     const feeAccountBalanceAfter = await ethers.provider.getBalance(feeAccount.address)
 
-    console.log({
-      sellerBalanceAfter,
-      buyerBalanceAfter,
-      feeAccountBalanceAfter
-    })
+    // console.log({
+    //   sellerBalanceAfter,
+    //   buyerBalanceAfter,
+    //   feeAccountBalanceAfter
+    // })
   })
 
   it("EscrowFacet: Create and Cancel order", async () => {
@@ -170,17 +193,19 @@ describe('Tests', async function () {
     const buyerBalanceBefore = await ethers.provider.getBalance(buyer.address)
     const feeAccountBalanceBefore = await ethers.provider.getBalance(feeAccount.address)
 
-    console.log({
-      sellerBalanceBefore,
-      buyerBalanceBefore,
-      feeAccountBalanceBefore
-    })
+    // console.log({
+    //   sellerBalanceBefore,
+    //   buyerBalanceBefore,
+    //   feeAccountBalanceBefore
+    // })
 
     let res = await escrowFacet.createEscrowNative(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
       value: ESCROW_TOTAL_VALUE,
     })
 
     const response = await res.wait()
+    console.log(response.logs[0].args)
+
     const tradeHash = response.logs[0].args[0]
     let escrowStruct = await adminFacet.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active")
@@ -196,11 +221,11 @@ describe('Tests', async function () {
     const buyerBalanceAfter = await ethers.provider.getBalance(buyer.address)
     const feeAccountBalanceAfter = await ethers.provider.getBalance(feeAccount.address)
 
-    console.log({
-      sellerBalanceAfter,
-      buyerBalanceAfter,
-      feeAccountBalanceAfter
-    })
+    // console.log({
+    //   sellerBalanceAfter,
+    //   buyerBalanceAfter,
+    //   feeAccountBalanceAfter
+    // })
   })
 
   it("EscrowFacet: Create and Claim dispute (Buyer)", async () => {
@@ -216,11 +241,11 @@ describe('Tests', async function () {
     const buyerBalanceBefore = await ethers.provider.getBalance(buyer.address)
     const feeAccountBalanceBefore = await ethers.provider.getBalance(feeAccount.address)
 
-    console.log({
-      sellerBalanceBefore,
-      buyerBalanceBefore,
-      feeAccountBalanceBefore
-    })
+    // console.log({
+    //   sellerBalanceBefore,
+    //   buyerBalanceBefore,
+    //   feeAccountBalanceBefore
+    // })
 
     let res = await escrowFacet.connect(seller).createEscrowNative(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
       value: ESCROW_TOTAL_VALUE,
@@ -233,10 +258,10 @@ describe('Tests', async function () {
 
 
     // escrowFacet.
-    const messageHash = await signatureFacet.getMessageHash(tradeHash, buyer.address)
+    const messageHash = await escrowFacet.getMessageHash(tradeHash, buyer.address)
     const sig = await arbitrator.signMessage(ethers.getBytes(messageHash));
-    const signedMessageHash = await signatureFacet.getEthSignedMessageHash(messageHash);
-    const _signatory = await signatureFacet.recoverSigner(signedMessageHash, sig);
+    const signedMessageHash = await escrowFacet.getEthSignedMessageHash(messageHash);
+    const _signatory = await escrowFacet.recoverSigner(signedMessageHash, sig);
 
     assert(_signatory == arbitrator.address, "Invalid signatory")
 
@@ -251,11 +276,11 @@ describe('Tests', async function () {
     const buyerBalanceAfter = await ethers.provider.getBalance(buyer.address)
     const feeAccountBalanceAfter = await ethers.provider.getBalance(feeAccount.address)
 
-    console.log({
-      sellerBalanceAfter,
-      buyerBalanceAfter,
-      feeAccountBalanceAfter
-    })
+    // console.log({
+    //   sellerBalanceAfter,
+    //   buyerBalanceAfter,
+    //   feeAccountBalanceAfter
+    // })
   })
 
   it("EscrowFacet: Create and Claim dispute (Seller)", async () => {
@@ -272,11 +297,11 @@ describe('Tests', async function () {
     const buyerBalanceBefore = await ethers.provider.getBalance(buyer.address)
     const feeAccountBalanceBefore = await ethers.provider.getBalance(feeAccount.address)
 
-    console.log({
-      sellerBalanceBefore,
-      buyerBalanceBefore,
-      feeAccountBalanceBefore
-    })
+    // console.log({
+    //   sellerBalanceBefore,
+    //   buyerBalanceBefore,
+    //   feeAccountBalanceBefore
+    // })
 
     let res = await escrowFacet.connect(seller).createEscrowNative(buyer.address, ESCROW_VALUE, EXT_TRADE_RANDOM, {
       value: ESCROW_TOTAL_VALUE,
@@ -288,10 +313,10 @@ describe('Tests', async function () {
     assert(escrowStruct[7] == true, "Escrow is not active")
 
     // escrowFacet.
-    const messageHash = await signatureFacet.getMessageHash(tradeHash, seller.address)
+    const messageHash = await escrowFacet.getMessageHash(tradeHash, seller.address)
     const sig = await arbitrator.signMessage(ethers.getBytes(messageHash));
-    const signedMessageHash = await signatureFacet.getEthSignedMessageHash(messageHash);
-    const _signatory = await signatureFacet.recoverSigner(signedMessageHash, sig);
+    const signedMessageHash = await escrowFacet.getEthSignedMessageHash(messageHash);
+    const _signatory = await escrowFacet.recoverSigner(signedMessageHash, sig);
 
     assert(_signatory == arbitrator.address, "Invalid signatory")
 
@@ -306,11 +331,103 @@ describe('Tests', async function () {
     const buyerBalanceAfter = await ethers.provider.getBalance(buyer.address)
     const feeAccountBalanceAfter = await ethers.provider.getBalance(feeAccount.address)
 
-    console.log({
-      sellerBalanceAfter,
-      buyerBalanceAfter,
-      feeAccountBalanceAfter
-    })
+    // console.log({
+    //   sellerBalanceAfter,
+    //   buyerBalanceAfter,
+    //   feeAccountBalanceAfter
+    // })
+  })
+
+  it("EscrowFacetERC20: Create and Complete Native currency trade", async () => {
+    const EXT_TRADE_RANDOM = ethers.encodeBytes32String("0123");
+    const ETHERS_VALUE = 10000;
+    const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+
+    const feePerParty = BigInt(ETHERS_VALUE * 0.005)
+
+    const ETHERS_VALUE_TO_APPROVE = ETHERS_VALUE * 2
+    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
+
+    let balanceOfSeller = await tokenContract.balanceOf(seller)
+    let balanceOfBuyer = await tokenContract.balanceOf(buyer)
+    let balanceOfContract = await tokenContract.balanceOf(diamondAddress)
+    let balanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
+
+    await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
+
+    let res = await escrowFacetERC20.connect(seller).createEscrowERC20(
+      buyer.address,
+      ESCROW_VALUE,
+      EXT_TRADE_RANDOM,
+      tokenContract.target
+    )
+
+    const response = await res.wait()
+
+    const tradeHash = response.logs[2].args[0]
+    let escrowStruct = await adminFacet.getEscrow(tradeHash);
+    assert(escrowStruct[7] == true, "Escrow is not active")
+
+    // // escrowFacet.
+    const messageHash = await escrowFacet.getMessageHash(tradeHash, buyer.address)
+    const sig = await seller.signMessage(ethers.getBytes(messageHash));
+    const signedMessageHash = await escrowFacet.getEthSignedMessageHash(messageHash);
+    const _signatory = await escrowFacet.recoverSigner(signedMessageHash, sig);
+
+    assert(_signatory == seller.address, "Invalid signatory")
+
+    // Complete the trade
+    res = await escrowFacetERC20.connect(seller).executeOrderERC20(tradeHash, sig)
+
+    escrowStruct = await adminFacet.getEscrow(tradeHash);
+    assert(escrowStruct[7] == false, "Escrow still active")
+
+
+    let newBalanceOfSeller = await tokenContract.balanceOf(seller)
+    let newBalanceOfBuyer = await tokenContract.balanceOf(buyer)
+    let newBalanceOfContract = await tokenContract.balanceOf(diamondAddress)
+    let newBalanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
+
+    assert(balanceOfSeller - (ESCROW_VALUE + feePerParty) == newBalanceOfSeller, "Fee calculations are incorrect")
+    assert(balanceOfBuyer + (ESCROW_VALUE - feePerParty) == newBalanceOfBuyer, "Fee calculations are incorrect")
+    assert(newBalanceOfContract == balanceOfContract, "Fee calculations are incorrect")
+    assert(balanceOfFeeAddress + (feePerParty + feePerParty) == newBalanceOfFeeAddress, "Fee calculations are incorrect")
+  })
+
+  it("EscrowFacet: Create and Cancel order", async () => {
+    const EXT_TRADE_RANDOM = ethers.encodeBytes32String("0234");
+    const ETHERS_VALUE = 10000;
+    const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+
+    const feePerParty = BigInt(ETHERS_VALUE * 0.005)
+
+    const ETHERS_VALUE_TO_APPROVE = ETHERS_VALUE * 2
+    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
+
+    let balanceOfSeller = await tokenContract.balanceOf(seller)
+    let balanceOfBuyer = await tokenContract.balanceOf(buyer)
+    let balanceOfContract = await tokenContract.balanceOf(diamondAddress)
+    let balanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
+
+    let res = await escrowFacetERC20.connect(seller).createEscrowERC20(
+      buyer.address,
+      ESCROW_VALUE,
+      EXT_TRADE_RANDOM,
+      tokenContract.target
+    )
+
+    const response = await res.wait()
+
+    const tradeHash = response.logs[2].args[0]
+    let escrowStruct = await adminFacet.getEscrow(tradeHash);
+    assert(escrowStruct[7] == true, "Escrow is not active")
+
+    // Complete the trade
+    res = await escrowFacet.connect(buyer).buyerCancel(tradeHash)
+
+    escrowStruct = await adminFacet.getEscrow(tradeHash);
+    assert(escrowStruct[7] == false, "Escrow still active")
+
   })
 
 })

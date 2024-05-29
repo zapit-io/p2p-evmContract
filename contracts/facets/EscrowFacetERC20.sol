@@ -63,10 +63,7 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
      * @description value + seller fees = msg.value
      */
     uint256 _sellerFees = (_value * ds.escrowFeeBP) / (10000 * 2);
-
     uint256 toTransfer = _value + _sellerFees;
-
-    console.logBytes32(_tradeID);
 
     require(
       IERC20(_currency).balanceOf(msg.sender) >= toTransfer,
@@ -92,13 +89,8 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
       true
     );
 
-    console.log("here");
-
     // Store the unique identifier key and map it to trade ID.
     ds.extIdentifierToEscrow[_extUniqueIdentifier] = _tradeID;
-
-    console.log("before event");
-
     emit LibEvents.Created(
       _tradeID,
       msg.sender,
@@ -221,6 +213,7 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
     if (!_escrow.exists) {
       revert EscrowDoesNotExist();
     }
+
     if (msg.sender != _escrow.buyer) {
       revert NotBuyer();
     }
@@ -233,6 +226,7 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
     // So the amount to be transferred back to the seller should be value + seller fee
     uint256 _sellerFees = (_escrow.value * _escrow.fee) / (10000 * 2);
     uint256 _totalTransferValue = _escrow.value + _sellerFees;
+    console.log("before transfer");
     IERC20(_escrow.currency).transfer(_escrow.seller, _totalTransferValue);
 
     emit LibEvents.CancelledByBuyer(_tradeID, _escrow.extUniqueIdentifier);

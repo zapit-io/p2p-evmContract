@@ -2,23 +2,30 @@ import { ethers } from "hardhat";
 import { ZeroAddress } from "ethers";
 import { EscrowFacet, Diamond } from "../typechain-types";
 const { getSelectors, FacetCutAction } = require('./libraries/diamond.js')
+import { network } from "hardhat";
 
 
-// Polygon
-const diamondCutFacet = '0x26C21884F6cD77A0a129852E73C88F2944405E88'
-const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
-const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+let diamondCutFacet: string;
+let deployedAddress: string;
+let diamondInit: string;
 
-// Avalanche
-// const diamondCutFacet = '0x4B2cD84D14720A6FFE23f9332B069E02860Cdc7b'
-// const deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
-// const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
-
-// Ethereum
-// const diamondCutFacet = '0xF564D03eE63b79AB41653030C090582ebfFf887E'
-// const deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
-// const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
-
+switch (network.name) {
+  case 'avalanche':
+    diamondCutFacet = '0x4B2cD84D14720A6FFE23f9332B069E02860Cdc7b'
+    deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
+    diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
+    break;
+  case 'ethereum':
+    diamondCutFacet = '0xF564D03eE63b79AB41653030C090582ebfFf887E'
+    deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
+    diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
+    break;
+  case 'polygon':
+    diamondCutFacet = '0x26C21884F6cD77A0a129852E73C88F2944405E88'
+    deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
+    diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+    break;
+}
 
 // ---------------------------------------------
 // ---------------------------------------------
@@ -262,7 +269,15 @@ async function createEscrow() {
 async function whitelistCurrency() {
   const adminContract = await ethers.getContractAt("AdminFacet", deployedAddress);
 
-  const token = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359' // MAINET
+  const token = ZeroAddress
+
+  // USDT on Polygon
+  // const token = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'
+  // USDT on ethereum
+  // const token = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
+  // USDT on avalanche
+  // const token = '0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7'
+
   // const token = '0x0F73cc99dE9bF6657C46B55fD666b82FcB9dbD2C' // TESTNET
 
   const res = await adminContract.getWhitelistedCurrencies(token)
@@ -360,7 +375,7 @@ async function main() {
   const [account1, account2, account3, account4, account5] = await ethers.getSigners();
   console.log(account1.address, account2.address, account3.address, account4.address, account5.address)
 
-  await getAllFunctionsInDiamond()
+  // await getAllFunctionsInDiamond()
   // await readStorage()
   // await removeMethodFromFacet()
 
@@ -370,7 +385,7 @@ async function main() {
 
   // await getEscrow()
 
-  // await whitelistCurrency()
+  await whitelistCurrency()
 
   // console.log(await escrowFee())
 

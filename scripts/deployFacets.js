@@ -12,17 +12,20 @@ const { ContractFactory } = require('ethers')
 // const SignatureFacet = '0x3A8dbfa87f2940C1307C289dA836423653D67201'
 // const EscrowFacet = '0x47d8eB2497Fed7f6a28a6000dac18415112F9A94'
 // const AdminFacet = '0x095876F31b07C91d92E1C6414169f2e252789D0d'
+// const EscrowFacetERC20 = '0xC7d8fe2AA68CF42204bAbD005655F4b461a549c5'
 
 // Ethereum
-// const SignatureFacet = '0x4B2cD84D14720A6FFE23f9332B069E02860Cdc7b'
+// const SignatureFacet = '0x765ece317F3cf8CEd10f588226e3fd715932e0d2'
 // const EscrowFacet = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
 // const AdminFacet = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
+// const EscrowFacetERC20 = '0x4aDC11C8e2418aB07D7931A41d48EC102C1DBDeE'
 
 async function main(params) {
 
   let diamondAddr = params.diamondAddr
   let diamondInitAddr = params.diamondInitAddr
   let feeAddress = params.feeAddress
+  let facetNames = params.facetNames
 
   // deploy facets
   console.log('')
@@ -32,12 +35,14 @@ async function main(params) {
   // When new contract needs to be deployed
   // ----------------
 
-  const FacetNames = [
-    'SignatureFacet',
-    'AdminFacet',
-    'EscrowFacetERC20',
-    'EscrowFacet'
-  ]
+  if (!facetNames) {
+    facetNames = [
+      'SignatureFacet',
+      'AdminFacet',
+      'EscrowFacetERC20',
+      'EscrowFacet'
+    ]
+  }
 
   const selectorsToIgnore = []
 
@@ -51,7 +56,8 @@ async function main(params) {
   // const signatureFacetSelectors = getSelectors(signatureFacet, [])
 
   const cut = []
-  for (const FacetName of FacetNames) {
+
+  for (const FacetName of facetNames) {
     const facet = await ethers.deployContract(FacetName);
 
     console.log(`const ${FacetName} = '${facet.target}'`)
@@ -74,16 +80,15 @@ async function main(params) {
   // ----------------
   // When contracts are already deployed
   // ----------------
-  // const cut = []
 
-  // const FacetNamesObj = {
-  //   'SignatureFacet': '0x74Bb5c1c3797aa5a2Cf9db386E662D733e23d11b',
-  //   // 'EscrowFacet': EscrowFacet,
+  // const facetNamesObj = {
+  //   // 'SignatureFacet': '0x765ece317F3cf8CEd10f588226e3fd715932e0d2',
+  //   // 'EscrowFacet': '0xc2EDC3ac51D82336b39B08C7E68201be69171113',
   //   // 'AdminFacet': AdminFacet,
-  //   'EscrowFacetERC20': '0x2Da7073dcE1D18CD37694fBf3088e516A2082692'
+  //   // 'EscrowFacetERC20': '0x4aDC11C8e2418aB07D7931A41d48EC102C1DBDeE'
   // }
 
-  // for (const [name, address] of Object.entries(FacetNamesObj)) {
+  // for (const [name, address] of Object.entries(facetNamesObj)) {
   //   const facet = await ethers.getContractAt(name, address)
   //   const signatureFacetSelectors = getSelectors(facet, selectorsToIgnore)
 
@@ -99,6 +104,8 @@ async function main(params) {
   //     })
   //   }
   // }
+
+  // return
 
   try {
 
@@ -139,21 +146,27 @@ async function main(params) {
 // and properly handle errors.
 if (require.main === module) {
   const feeAddress = '0x274b3608f837f9102cCcC89Ed2312299e3FD9fE5'
+  const facetNames = [
+    'SignatureFacet',
+    // 'AdminFacet',
+    'EscrowFacetERC20',
+    // 'EscrowFacet'
+  ]
 
   // // Polygon
-  const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
-  const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+  // const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
+  // const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
 
   // // Avalanche
   // const deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
   // const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
 
   // Ethereum
-  // const deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
-  // const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
+  const deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
+  const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
 
 
-  main({ diamondAddr: deployedAddress, diamondInitAddr: diamondInit, feeAddress })
+  main({ diamondAddr: deployedAddress, diamondInitAddr: diamondInit, feeAddress, facetNames })
     // main()
     .then(() => process.exit(0))
     .catch(error => {

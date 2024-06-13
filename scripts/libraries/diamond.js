@@ -14,8 +14,8 @@ function getSelectors(contract, selectorsToIgnore) {
   const selectors = signatures.reduce((acc, val) => {
     if (val.name !== 'init' && val.type === 'function') {
       const bytes4 = FunctionFragment.getSelector(val.name, val.inputs)
-      console.log(val.name, bytes4)
       if (!selectorsToIgnore.includes(bytes4)) {
+        console.log(`Adding: [Name: ${val.name}, sigHash: ${bytes4}]`)
         acc.push(bytes4)
       }
     }

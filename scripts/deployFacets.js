@@ -6,7 +6,7 @@ const { ContractFactory } = require('ethers')
 // const SignatureFacet = '0x74Bb5c1c3797aa5a2Cf9db386E662D733e23d11b'
 // const EscrowFacet = '0x1b12b7235F0cc5D8892eA8c97Fefda4Ba9Bd6bDB'
 // const AdminFacet = '0xEabBC98c37C33Ba5D93DF44563AeC6fDBFeDFEb3'
-// const EscrowFacetERC20 = '0x4E3e7F71e3c92ac7b31196a81862E6C74A91b330'
+// const EscrowFacetERC20 = '0x2Da7073dcE1D18CD37694fBf3088e516A2082692'
 
 // Avalanche
 // const SignatureFacet = '0x3A8dbfa87f2940C1307C289dA836423653D67201'
@@ -22,6 +22,7 @@ async function main(params) {
 
   let diamondAddr = params.diamondAddr
   let diamondInitAddr = params.diamondInitAddr
+  let feeAddress = params.feeAddress
 
   // deploy facets
   console.log('')
@@ -40,13 +41,22 @@ async function main(params) {
 
   const selectorsToIgnore = []
 
+  // // To be used when adding a new contract that uses signature facet's methods
+  // const signatureFacet = await ethers.getContractAt('SignatureFacet', '0x74Bb5c1c3797aa5a2Cf9db386E662D733e23d11b')
+  // const signatureFacetSelectors = getSelectors(signatureFacet, [])
+  // for (const functions of signatureFacetSelectors) {
+  //   selectorsToIgnore.push(functions)
+  // }
+
+  // const signatureFacetSelectors = getSelectors(signatureFacet, [])
+
   const cut = []
   for (const FacetName of FacetNames) {
-    let Facet, facet
-    facet = await ethers.deployContract(FacetName);
+    const facet = await ethers.deployContract(FacetName);
 
     console.log(`const ${FacetName} = '${facet.target}'`)
     const signatureFacetSelectors = getSelectors(facet, [])
+
     cut.push({
       facetAddress: facet.target,
       action: FacetCutAction.Add,
@@ -58,6 +68,7 @@ async function main(params) {
         selectorsToIgnore.push(functions)
       }
     }
+
   }
 
   // ----------------
@@ -69,9 +80,8 @@ async function main(params) {
   //   'SignatureFacet': '0x74Bb5c1c3797aa5a2Cf9db386E662D733e23d11b',
   //   // 'EscrowFacet': EscrowFacet,
   //   // 'AdminFacet': AdminFacet,
-  //   'EscrowFacetERC20': '0x4E3e7F71e3c92ac7b31196a81862E6C74A91b330'
+  //   'EscrowFacetERC20': '0x2Da7073dcE1D18CD37694fBf3088e516A2082692'
   // }
-
 
   // for (const [name, address] of Object.entries(FacetNamesObj)) {
   //   const facet = await ethers.getContractAt(name, address)
@@ -94,8 +104,10 @@ async function main(params) {
 
     console.log('diamondInitAddr: ', diamondInitAddr)
     const diamondInit = await ethers.getContractAt('DiamondInit', diamondInitAddr)
-    const accounts = await ethers.getSigners()
-    const feeAddress = accounts[4].address
+    if (!feeAddress) {
+      const accounts = await ethers.getSigners()
+      feeAddress = accounts[4].address
+    }
 
     console.log('feeAddress: ', feeAddress)
     console.log('diamondInit', diamondInit)
@@ -126,6 +138,7 @@ async function main(params) {
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
 if (require.main === module) {
+  const feeAddress = '0x274b3608f837f9102cCcC89Ed2312299e3FD9fE5'
 
   // // Polygon
   const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
@@ -140,7 +153,7 @@ if (require.main === module) {
   // const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
 
 
-  main({ diamondAddr: deployedAddress, diamondInitAddr: diamondInit })
+  main({ diamondAddr: deployedAddress, diamondInitAddr: diamondInit, feeAddress })
     // main()
     .then(() => process.exit(0))
     .catch(error => {

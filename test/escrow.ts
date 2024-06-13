@@ -75,11 +75,6 @@ describe('Tests', async function () {
     assert.equal(res, feeAccount.address)
   })
 
-  it("ADMIN: FEE ADDRESS: Should fetch the default market fee address", async () => {
-    let res = await adminFacet.getFeeAddress()
-    assert.equal(res, feeAccount.address)
-  })
-
   it("ADMIN: FEE ADDRESS: SET+GET Should set and fetch the default market fee address", async () => {
     await adminFacet.setFeeAddress(feeAccount.address)
     let res = await adminFacet.getFeeAddress()

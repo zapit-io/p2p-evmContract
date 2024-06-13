@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import "../shared/interfaces/IERC20.sol";
+import "../shared/libraries/SafeERC20.sol";
 import { AppStorage, Escrow, EscrowDoesNotExist, ExtUniqueIdentifierExists, IncorrectEth, InvalidArbitratorSignature, InvalidSellerSignature, LibAppStorage, LibEvents, Modifiers, NotBuyer, TradeExists, TradeWithSelf } from "../shared/libraries/LibAppStorage.sol";
 import { SignatureFacet } from "../shared/facets/SignatureFacet.sol";
-import "hardhat/console.sol";
 
 /// @title Zapit P2P Escrows
 /// @author Zapit
 contract EscrowFacetERC20 is Modifiers, SignatureFacet {
+  using SafeERC20 for IERC20;
+
   /***********************
 	+   User-Functions   +
 	***********************/
@@ -24,8 +26,8 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
     address _currency
   )
     external
-    payable
     nonReentrant
+    whenNotPaused
     nonContract
     onlyWhitelistedCurrencies(_currency)
   {
@@ -69,10 +71,8 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
       IERC20(_currency).balanceOf(msg.sender) >= toTransfer,
       "Insufficient amount"
     );
-    require(
-      IERC20(_currency).transferFrom(msg.sender, address(this), toTransfer),
-      "insufficient allowance"
-    );
+
+    IERC20(_currency).safeTransferFrom(msg.sender, address(this), toTransfer);
 
     // To prevent stack too deep.
     uint256 value = _value;
@@ -109,7 +109,7 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
   function claimDisputedOrderERC20(
     bytes32 _tradeID,
     bytes memory _sig
-  ) external nonReentrant nonContract {
+  ) external nonReentrant whenNotPaused nonContract {
     AppStorage storage ds = LibAppStorage.diamondStorage();
     Escrow storage _escrow = ds.escrows[_tradeID];
 
@@ -140,18 +140,18 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
 
     // If the seller is claiming the funds then transfer the entire amount including the fee paid earlier
     if (msg.sender == _escrow.seller) {
-      IERC20(_escrow.currency).transfer(
+      IERC20(_escrow.currency).safeTransfer(
         _escrow.seller,
         _escrow.value + _tradeFeeAmount
       );
     } else {
       // If it is resolved in favour of the buyer then this is a 'completed' trade and we charge a fee
-      IERC20(_escrow.currency).transfer(
+      IERC20(_escrow.currency).safeTransfer(
         _escrow.buyer,
         _escrow.value - _tradeFeeAmount
       );
       // Transfer the fee to fee address
-      IERC20(_escrow.currency).transfer(s.feeAddress, _tradeFeeAmount * 2);
+      IERC20(_escrow.currency).safeTransfer(s.feeAddress, _tradeFeeAmount * 2);
     }
 
     emit LibEvents.DisputeClaimed(
@@ -168,7 +168,7 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
   function executeOrderERC20(
     bytes32 _tradeID,
     bytes memory _sig
-  ) external nonReentrant nonContract {
+  ) external nonReentrant whenNotPaused nonContract {
     AppStorage storage ds = LibAppStorage.diamondStorage();
     Escrow storage _escrow = ds.escrows[_tradeID];
 
@@ -195,9 +195,9 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
     uint256 _tradeFeeAmount = (_escrow.value * _escrow.fee) / (10000 * 2);
     uint256 _totalTransferValue = _escrow.value - _tradeFeeAmount;
 
-    IERC20(_escrow.currency).transfer(_escrow.buyer, _totalTransferValue);
+    IERC20(_escrow.currency).safeTransfer(_escrow.buyer, _totalTransferValue);
     // Half the fee is paid by the buyer and half is paid by the seller
-    IERC20(_escrow.currency).transfer(s.feeAddress, _tradeFeeAmount * 2);
+    IERC20(_escrow.currency).safeTransfer(s.feeAddress, _tradeFeeAmount * 2);
 
     emit LibEvents.TradeCompleted(_tradeID, _escrow.extUniqueIdentifier, _sig);
   }
@@ -206,7 +206,7 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
   ///@param _tradeID Escrow "tradeID" parameter
   function buyerCancelERC20(
     bytes32 _tradeID
-  ) external nonReentrant nonContract {
+  ) external nonReentrant whenNotPaused nonContract {
     AppStorage storage ds = LibAppStorage.diamondStorage();
     Escrow storage _escrow = ds.escrows[_tradeID];
 
@@ -226,8 +226,7 @@ contract EscrowFacetERC20 is Modifiers, SignatureFacet {
     // So the amount to be transferred back to the seller should be value + seller fee
     uint256 _sellerFees = (_escrow.value * _escrow.fee) / (10000 * 2);
     uint256 _totalTransferValue = _escrow.value + _sellerFees;
-    console.log("before transfer");
-    IERC20(_escrow.currency).transfer(_escrow.seller, _totalTransferValue);
+    IERC20(_escrow.currency).safeTransfer(_escrow.seller, _totalTransferValue);
 
     emit LibEvents.CancelledByBuyer(_tradeID, _escrow.extUniqueIdentifier);
   }

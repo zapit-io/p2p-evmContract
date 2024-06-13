@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
-import { EscrowFacet, Diamond } from "../typechain-types";
 import { ZeroAddress } from "ethers";
+import { EscrowFacet, Diamond } from "../typechain-types";
+const { getSelectors, FacetCutAction } = require('./libraries/diamond.js')
 
 
 // Polygon
@@ -294,13 +295,74 @@ async function readStorage() {
   console.log(_storage)
 }
 
+async function removeMethodFromFacet() {
+  const diamondAddr = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
+  const diamondInitAddr = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+  const feeAddress = '0x274b3608f837f9102cCcC89Ed2312299e3FD9fE5'
+
+  const FacetNames = [
+    'SignatureFacet',
+    'EscrowFacetERC20',
+  ]
+
+  const FacetNamesObj: any = {
+    'SignatureFacet': '0x74Bb5c1c3797aa5a2Cf9db386E662D733e23d11b',
+    'EscrowFacetERC20': '0x4E3e7F71e3c92ac7b31196a81862E6C74A91b330',
+  }
+
+  const selectorsToIgnore = []
+
+  const cut = []
+  for (const FacetName of FacetNames) {
+    console.log(FacetName)
+    const facet = await ethers.getContractAt(FacetName, FacetNamesObj[FacetName])
+
+    const signatureFacetSelectors = getSelectors(facet, [])
+
+    console.log("Facet address", facet.target)
+    // console.log("Facet selectors", signatureFacetSelectors)
+
+    if (FacetName == 'SignatureFacet') {
+      for (const functions of signatureFacetSelectors) {
+        selectorsToIgnore.push(functions)
+      }
+    } else {
+      console.log('selectorsToIgnore: ', selectorsToIgnore)
+
+      cut.push({
+        facetAddress: '0x0000000000000000000000000000000000000000',
+        action: FacetCutAction.Remove,
+        functionSelectors: getSelectors(facet, selectorsToIgnore)
+      })
+    }
+  }
+
+  const diamondInit = await ethers.getContractAt('DiamondInit', diamondInitAddr)
+
+  // call to init function
+  let functionCall = diamondInit.interface.encodeFunctionData(
+    'init',
+    [feeAddress, 100]
+  )
+
+  const diamondCutFacet = await ethers.getContractAt('DiamondCutFacet', diamondAddr)
+
+  const result = await diamondCutFacet.diamondCut(
+    cut,
+    diamondInit.target,
+    functionCall
+  )
+  console.log('------')
+  console.log('Upgrade transaction hash: ' + result.hash)
+}
+
 async function main() {
   const [account1, account2, account3, account4, account5] = await ethers.getSigners();
   console.log(account1.address, account2.address, account3.address, account4.address, account5.address)
 
-  // await getAllFunctionsInDiamond()
-
-  await readStorage()
+  await getAllFunctionsInDiamond()
+  // await readStorage()
+  // await removeMethodFromFacet()
 
   // await setFeeAddress()
 

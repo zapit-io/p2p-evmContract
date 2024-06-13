@@ -3,8 +3,10 @@ const { getSelectors, FacetCutAction } = require('./libraries/diamond.js')
 const { ContractFactory } = require('ethers')
 
 // Polygon
+// const SignatureFacet = '0x74Bb5c1c3797aa5a2Cf9db386E662D733e23d11b'
 // const EscrowFacet = '0x1b12b7235F0cc5D8892eA8c97Fefda4Ba9Bd6bDB'
 // const AdminFacet = '0xEabBC98c37C33Ba5D93DF44563AeC6fDBFeDFEb3'
+// const EscrowFacetERC20 = '0x4E3e7F71e3c92ac7b31196a81862E6C74A91b330'
 
 // Avalanche
 // const SignatureFacet = '0x3A8dbfa87f2940C1307C289dA836423653D67201'
@@ -64,18 +66,28 @@ async function main(params) {
   // const cut = []
 
   // const FacetNamesObj = {
-  //   // 'SignatureFacet': SignatureFacet
+  //   'SignatureFacet': '0x74Bb5c1c3797aa5a2Cf9db386E662D733e23d11b',
   //   // 'EscrowFacet': EscrowFacet,
   //   // 'AdminFacet': AdminFacet,
+  //   'EscrowFacetERC20': '0x4E3e7F71e3c92ac7b31196a81862E6C74A91b330'
   // }
+
 
   // for (const [name, address] of Object.entries(FacetNamesObj)) {
   //   const facet = await ethers.getContractAt(name, address)
-  //   cut.push({
-  //     facetAddress: facet.target,
-  //     action: FacetCutAction.Add,
-  //     functionSelectors: getSelectors(facet)
-  //   })
+  //   const signatureFacetSelectors = getSelectors(facet, selectorsToIgnore)
+
+  //   if (name == 'SignatureFacet') {
+  //     for (const functions of signatureFacetSelectors) {
+  //       selectorsToIgnore.push(functions)
+  //     }
+  //   } else {
+  //     cut.push({
+  //       facetAddress: facet.target,
+  //       action: FacetCutAction.Add,
+  //       functionSelectors: signatureFacetSelectors
+  //     })
+  //   }
   // }
 
   try {
@@ -116,8 +128,8 @@ async function main(params) {
 if (require.main === module) {
 
   // // Polygon
-  // const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935' // Diamond
-  // const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+  const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
+  const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
 
   // // Avalanche
   // const deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'

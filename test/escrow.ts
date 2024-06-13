@@ -92,18 +92,68 @@ describe('Tests', async function () {
     assert.equal(FEES, 100)
   })
 
-  it("ADMIN: PAUSABLE: Market should not be paused initially", async () => {
+  it("PAUSABLE: Market should not be paused initially", async () => {
     let res = await adminFacet.paused()
     assert(res == false)
   })
 
-  it("ADMIN: PAUSABLE: Should pause the market", async () => {
+  it("PAUSABLE: Should pause the market", async () => {
     await adminFacet.pause()
     let res = await adminFacet.paused()
     assert(res == true)
   })
 
-  it("ADMIN: Whitelist base currency", async () => {
+  it("PAUSABLE: Fail to create order due to paused contract", async () => {
+    try {
+      const EXT_TRADE_RANDOM = ethers.encodeBytes32String("x-0234");
+      const ETHERS_VALUE = 10000;
+      const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+
+      const ETHERS_VALUE_TO_APPROVE = ETHERS_VALUE * 2
+      const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
+      await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
+
+      await escrowFacetERC20.connect(seller).createEscrowERC20(
+        buyer.address,
+        ESCROW_VALUE,
+        EXT_TRADE_RANDOM,
+        tokenContract.target
+      )
+    } catch (e) {
+      // @ts-ignore
+      assert(e?.message.includes('Pausable: paused') == true)
+    }
+  })
+
+  it("PAUSABLE: Should unpause the market", async () => {
+    await adminFacet.unpause()
+    let res = await adminFacet.paused()
+    assert(res == false)
+  })
+
+  it("WHITELIST: Fail to create order as currency is not whitelisted", async () => {
+    try {
+      const EXT_TRADE_RANDOM = ethers.encodeBytes32String("x-0234");
+      const ETHERS_VALUE = 10000;
+      const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+
+      const ETHERS_VALUE_TO_APPROVE = ETHERS_VALUE * 2
+      const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
+      await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
+
+      await escrowFacetERC20.connect(seller).createEscrowERC20(
+        buyer.address,
+        ESCROW_VALUE,
+        EXT_TRADE_RANDOM,
+        tokenContract.target
+      )
+    } catch (e) {
+      // @ts-ignore
+      assert(e?.message.includes('CurrencyNotWhitelisted') == true)
+    }
+  })
+
+  it("WHITELIST: Whitelist base currency", async () => {
     await adminFacet.setWhitelistedCurrencies(ZeroAddress, true)
     await adminFacet.setWhitelistedCurrencies(tokenContract.target, true)
 

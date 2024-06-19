@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.24;
+pragma solidity 0.8.24;
 
 import { AppStorage, Escrow, LibAppStorage, LibEvents, Modifiers } from "../shared/libraries/LibAppStorage.sol";
 import { LibDiamond } from "../shared/libraries/LibDiamond.sol";

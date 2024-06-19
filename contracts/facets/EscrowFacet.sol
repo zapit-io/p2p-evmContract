@@ -130,11 +130,19 @@ contract EscrowFacet is Modifiers, SignatureFacet {
 
     // If the seller is claiming the funds then transfer the entire amount including the fee paid earlier
     if (msg.sender == _escrow.seller) {
-      payable(_escrow.seller).transfer(_escrow.value + _tradeFeeAmount);
+      (bool success, ) = _escrow.seller.call{
+        value: _escrow.value + _tradeFeeAmount
+      }("");
+      require(success, "Transfer failed");
     } else {
       // If it is resolved in favour of the buyer then this is a 'completed' trade and we charge a fee
-      payable(_escrow.buyer).transfer(_escrow.value - _tradeFeeAmount);
-      payable(s.feeAddress).transfer(_tradeFeeAmount * 2);
+      (bool buyerSuccess, ) = _escrow.buyer.call{
+        value: _escrow.value - _tradeFeeAmount
+      }("");
+      require(buyerSuccess, "Transfer to buyer failed");
+
+      (bool feeSuccess, ) = s.feeAddress.call{ value: _tradeFeeAmount * 2 }("");
+      require(feeSuccess, "Transfer of fees failed");
     }
 
     emit LibEvents.DisputeClaimed(
@@ -178,10 +186,13 @@ contract EscrowFacet is Modifiers, SignatureFacet {
     // So the amount to be transferred to the buyer should be value - buyer fee
     uint256 _buyerFees = (_escrow.value * _escrow.fee) / (10000 * 2);
     uint256 _totalTransferValue = _escrow.value - _buyerFees;
-    payable(_escrow.buyer).transfer(_totalTransferValue);
+    (bool buyerSuccess, ) = _escrow.buyer.call{ value: _totalTransferValue }(
+      ""
+    );
+    require(buyerSuccess, "Transfer to buyer failed");
 
-    // Half the fee is paid by the buyer and half is paid by the seller
-    payable(s.feeAddress).transfer(_buyerFees * 2);
+    (bool feeSuccess, ) = s.feeAddress.call{ value: _buyerFees * 2 }("");
+    require(feeSuccess, "Transfer of fees failed");
 
     emit LibEvents.TradeCompleted(_tradeID, _escrow.extUniqueIdentifier, _sig);
   }
@@ -207,7 +218,8 @@ contract EscrowFacet is Modifiers, SignatureFacet {
     // So the amount to be transferred back to the seller should be value + seller fee
     uint256 _sellerFees = (_escrow.value * _escrow.fee) / (10000 * 2);
     uint256 _totalTransferValue = _escrow.value + _sellerFees;
-    payable(_escrow.seller).transfer(_totalTransferValue);
+    (bool success, ) = _escrow.seller.call{ value: _totalTransferValue }("");
+    require(success, "Transfer to seller failed");
 
     emit LibEvents.CancelledByBuyer(_tradeID, _escrow.extUniqueIdentifier);
   }

@@ -23,6 +23,7 @@ contract EscrowFacet is Modifiers, SignatureFacet {
     external
     payable
     nonReentrant
+    whenNotPaused
     nonContract
     onlyWhitelistedCurrencies(address(0))
   {
@@ -99,7 +100,7 @@ contract EscrowFacet is Modifiers, SignatureFacet {
   function claimDisputedOrder(
     bytes32 _tradeID,
     bytes memory _sig
-  ) external nonReentrant nonContract {
+  ) external nonReentrant whenNotPaused nonContract {
     AppStorage storage ds = LibAppStorage.diamondStorage();
     Escrow storage _escrow = ds.escrows[_tradeID];
 
@@ -159,7 +160,7 @@ contract EscrowFacet is Modifiers, SignatureFacet {
   function executeOrder(
     bytes32 _tradeID,
     bytes memory _sig
-  ) external nonReentrant nonContract {
+  ) external nonReentrant whenNotPaused nonContract {
     AppStorage storage ds = LibAppStorage.diamondStorage();
     Escrow storage _escrow = ds.escrows[_tradeID];
 
@@ -199,7 +200,9 @@ contract EscrowFacet is Modifiers, SignatureFacet {
 
   ///@notice Called by the buyer to cancel the escrow and returning the funds to the seller
   ///@param _tradeID Escrow "tradeID" parameter
-  function buyerCancel(bytes32 _tradeID) external nonReentrant nonContract {
+  function buyerCancel(
+    bytes32 _tradeID
+  ) external nonReentrant whenNotPaused nonContract {
     AppStorage storage ds = LibAppStorage.diamondStorage();
     Escrow storage _escrow = ds.escrows[_tradeID];
 

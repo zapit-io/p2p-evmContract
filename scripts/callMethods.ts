@@ -1,23 +1,31 @@
 import { ethers } from "hardhat";
-import { EscrowFacet, Diamond } from "../typechain-types";
 import { ZeroAddress } from "ethers";
+import { EscrowFacet, Diamond } from "../typechain-types";
+const { getSelectors, FacetCutAction } = require('./libraries/diamond.js')
+import { network } from "hardhat";
 
 
-// Polygon
-const diamondCutFacet = '0x26C21884F6cD77A0a129852E73C88F2944405E88'
-const deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
-const diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+let diamondCutFacet: string;
+let deployedAddress: string;
+let diamondInit: string;
 
-// Avalanche
-// const diamondCutFacet = '0x4B2cD84D14720A6FFE23f9332B069E02860Cdc7b'
-// const deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
-// const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
-
-// Ethereum
-// const diamondCutFacet = '0xF564D03eE63b79AB41653030C090582ebfFf887E'
-// const deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
-// const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
-
+switch (network.name) {
+  case 'avalanche':
+    diamondCutFacet = '0x4B2cD84D14720A6FFE23f9332B069E02860Cdc7b'
+    deployedAddress = '0xc2EDC3ac51D82336b39B08C7E68201be69171113'
+    diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
+    break;
+  case 'ethereum':
+    diamondCutFacet = '0xF564D03eE63b79AB41653030C090582ebfFf887E'
+    deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
+    diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
+    break;
+  case 'polygon':
+    diamondCutFacet = '0x26C21884F6cD77A0a129852E73C88F2944405E88'
+    deployedAddress = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
+    diamondInit = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+    break;
+}
 
 // ---------------------------------------------
 // ---------------------------------------------
@@ -32,6 +40,13 @@ async function setArbitrator() {
   return await contract.setArbitrator('0xA53E13f5724DC9b6F4a576089Fa669de68F24D1D')
 }
 
+async function setFeeAddress() {
+  const contract = await ethers.getContractAt("AdminFacet", deployedAddress);
+  const res = await contract.getFeeAddress()
+  console.log(res)
+  // await contract.setFeeAddress('0x274b3608f837f9102cCcC89Ed2312299e3FD9fE5')
+}
+
 async function getArbitrator() {
   const contract = await ethers.getContractAt("AdminFacet", deployedAddress);
   const arbitrator = await contract.getArbitrator()
@@ -41,6 +56,12 @@ async function getArbitrator() {
 async function escrowFee() {
   const contract = await ethers.getContractAt("AdminFacet", deployedAddress);
   return await contract.getFees()
+}
+
+async function getAllFunctionsInDiamond() {
+  const diamondLoupe = await ethers.getContractAt('DiamondLoupeFacet', deployedAddress)
+  let res = await diamondLoupe.facets()
+  console.log(res)
 }
 
 async function signatureGeneration() {
@@ -248,28 +269,125 @@ async function createEscrow() {
 async function whitelistCurrency() {
   const adminContract = await ethers.getContractAt("AdminFacet", deployedAddress);
 
-  // const USDT = '0xc2132d05d31c914a87c6611c10748aeb04b58e8f' // MAINET
-  // const USDT = '0x0F73cc99dE9bF6657C46B55fD666b82FcB9dbD2C' // TESTNET
+  const token = ZeroAddress
 
-  const res = await adminContract.getWhitelistedCurrencies(ZeroAddress)
+  // USDT on Polygon
+  // const token = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'
+  // USDT on ethereum
+  // const token = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
+  // USDT on avalanche
+  // const token = '0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7'
+
+  // const token = '0x0F73cc99dE9bF6657C46B55fD666b82FcB9dbD2C' // TESTNET
+
+  const res = await adminContract.getWhitelistedCurrencies(token)
   console.log(res)
 
-  // const iswhitelisted = await adminContract.setWhitelistedCurrencies(ZeroAddress, true)
+  // const iswhitelisted = await adminContract.setWhitelistedCurrencies(token, true)
   // console.log(iswhitelisted)
-  // await contract.setWhitelistedCurrencies(USDT, true)
+  // await adminContract.setWhitelistedCurrencies(token, true)
+}
+
+async function readStorage() {
+  // const address = diamondInit
+  const address = deployedAddress
+
+  for (let i = 0; i < 10; i++) {
+    let storageSlot = await ethers.provider.getStorage(address, i);
+    console.log(`Storage at slot ${i}:`, storageSlot);
+  }
+
+  const mappingSlot = 4;
+
+  const key = ZeroAddress;
+  const abiCoder = new ethers.AbiCoder()
+
+  const slotHash = ethers.keccak256(abiCoder.encode(["address", "uint256"], [key, mappingSlot]));
+  // const slotHash = ethers.keccak256(abiCoder.encode(["bytes32", "bytes32"], [key, mappingSlot]));
+
+  // Read the storage at the computed slot
+  const _storage = await ethers.provider.getStorage(address, slotHash);
+  console.log(_storage)
+}
+
+async function removeMethodFromFacet() {
+  const diamondAddr = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
+  const diamondInitAddr = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
+  const feeAddress = '0x274b3608f837f9102cCcC89Ed2312299e3FD9fE5'
+
+  const FacetNames = [
+    'SignatureFacet',
+    'EscrowFacetERC20',
+  ]
+
+  const FacetNamesObj: any = {
+    'SignatureFacet': '0x74Bb5c1c3797aa5a2Cf9db386E662D733e23d11b',
+    'EscrowFacetERC20': '0x4E3e7F71e3c92ac7b31196a81862E6C74A91b330',
+  }
+
+  const selectorsToIgnore = []
+
+  const cut = []
+  for (const FacetName of FacetNames) {
+    console.log(FacetName)
+    const facet = await ethers.getContractAt(FacetName, FacetNamesObj[FacetName])
+
+    const signatureFacetSelectors = getSelectors(facet, [])
+
+    console.log("Facet address", facet.target)
+    // console.log("Facet selectors", signatureFacetSelectors)
+
+    if (FacetName == 'SignatureFacet') {
+      for (const functions of signatureFacetSelectors) {
+        selectorsToIgnore.push(functions)
+      }
+    } else {
+      console.log('selectorsToIgnore: ', selectorsToIgnore)
+
+      cut.push({
+        facetAddress: '0x0000000000000000000000000000000000000000',
+        action: FacetCutAction.Remove,
+        functionSelectors: getSelectors(facet, selectorsToIgnore)
+      })
+    }
+  }
+
+  const diamondInit = await ethers.getContractAt('DiamondInit', diamondInitAddr)
+
+  // call to init function
+  let functionCall = diamondInit.interface.encodeFunctionData(
+    'init',
+    [feeAddress, 100]
+  )
+
+  const diamondCutFacet = await ethers.getContractAt('DiamondCutFacet', diamondAddr)
+
+  const result = await diamondCutFacet.diamondCut(
+    cut,
+    diamondInit.target,
+    functionCall
+  )
+  console.log('------')
+  console.log('Upgrade transaction hash: ' + result.hash)
 }
 
 async function main() {
   const [account1, account2, account3, account4, account5] = await ethers.getSigners();
   console.log(account1.address, account2.address, account3.address, account4.address, account5.address)
 
+  // await getAllFunctionsInDiamond()
+  // await readStorage()
+  // await removeMethodFromFacet()
+
+  // await setFeeAddress()
+
   // await getArbitrator()
 
   // await getEscrow()
 
-  // await whitelistCurrency()
+  await whitelistCurrency()
 
-  console.log(await escrowFee())
+  // console.log(await escrowFee())
 
   // await getArbitrator(contract)
   // await setArbitrator(contract)

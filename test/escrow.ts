@@ -10,21 +10,11 @@ describe('Tests', async function () {
   let diamondAddress: any;
   let ownershipFacet: any;
   let accounts: any;
-  let escrowFacet: any, escrowFacetERC20: any, adminFacet: any, tokenContract: any;
+  let escrowFacet: any, escrowFacetERC20: any, adminFacet: any, accessControlFacet: any, tokenContract: any;
   let deployer: any, arbitrator: any, buyer: any, seller: any, feeAccount: any;
   let FEES: any;
 
   before(async function () {
-    let res = await deployDiamond()
-    diamondAddress = res['diamondAddr']
-    await deployFacets(res)
-    accounts = await ethers.getSigners()
-
-    escrowFacet = await ethers.getContractAt('EscrowFacet', diamondAddress)
-    escrowFacetERC20 = await ethers.getContractAt('EscrowFacetERC20', diamondAddress)
-    ownershipFacet = await ethers.getContractAt('OwnershipFacet', diamondAddress)
-    adminFacet = await ethers.getContractAt('AdminFacet', diamondAddress)
-
     // Contracts are deployed using the first signer/account by default
     const [_deployer, _arbitrator, _buyer, _seller, _feeAccount] = await ethers.getSigners();
     deployer = _deployer
@@ -32,6 +22,17 @@ describe('Tests', async function () {
     buyer = _buyer
     seller = _seller
     feeAccount = _feeAccount
+
+    let res = await deployDiamond()
+    diamondAddress = res['diamondAddr']
+    await deployFacets({ ...res, feeAddress: _feeAccount.address })
+    accounts = await ethers.getSigners()
+
+    escrowFacet = await ethers.getContractAt('EscrowFacet', diamondAddress)
+    escrowFacetERC20 = await ethers.getContractAt('EscrowFacetERC20', diamondAddress)
+    ownershipFacet = await ethers.getContractAt('OwnershipFacet', diamondAddress)
+    adminFacet = await ethers.getContractAt('AdminFacet', diamondAddress)
+    accessControlFacet = await ethers.getContractAt('AccessControlFacet', diamondAddress)
 
     const ETHERS_VALUE = 100000;
     const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
@@ -91,6 +92,27 @@ describe('Tests', async function () {
     let res = await adminFacet.paused()
     assert(res == false)
   })
+
+  // it("PAUSABLE: Should pause the market via Admin", async () => {
+
+
+  //   // const adminRoleBytes32 = ethers.encodeBytes32String("ADMIN_ROLE");
+
+  //   // await accessControlFacet.grantRole(adminRoleBytes32, deployer.address);
+
+  //   const adminRoleBytes32 = '0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775'
+
+  //   console.log('adminRoleBytes32: ', adminRoleBytes32)
+  //   console.log('deployer.address: ', deployer.address)
+
+  //   const yeah = await accessControlFacet.hasRole(adminRoleBytes32, deployer.address)
+  //   console.log(yeah)
+
+  //   await adminFacet.pauseViaAdmin()
+
+  //   let res = await adminFacet.paused()
+  //   assert(res == true)
+  // })
 
   it("PAUSABLE: Should pause the market", async () => {
     await adminFacet.pause()

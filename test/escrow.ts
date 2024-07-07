@@ -1,6 +1,7 @@
 const { deployDiamond } = require('../scripts/deploy.js')
 const { deployFacets } = require('../scripts/deployFacets.js');
 const { deployToken } = require('../scripts/deployToken.js')
+const { getSelectors, FacetCutAction } = require('../scripts/libraries/diamond.js')
 import { assert, expect } from 'chai'
 import { ZeroAddress } from "ethers"
 import { ethers } from "hardhat";
@@ -12,8 +13,10 @@ describe('Tests', async function () {
     deployer: any,
     arbitrator: any,
     diamondAddress: any,
+    diamondCutContract: any,
     diamondInitAddr: any,
     diamondInitContract: any,
+    diamondLoupeContract: any,
     escrowFacet: any,
     escrowFacetERC20Contract: any,
     FEES: any,
@@ -36,6 +39,9 @@ describe('Tests', async function () {
 
     await deployFacets({ ...deployedCoreContracts, feeAddress: feeAccount.address })
 
+    diamondLoupeContract = await ethers.getContractAt('DiamondLoupeFacet', diamondAddress)
+    diamondCutContract = await ethers.getContractAt('DiamondCutFacet', diamondAddress)
+
     escrowFacet = await ethers.getContractAt('EscrowFacet', diamondAddress)
     escrowFacetERC20Contract = await ethers.getContractAt('EscrowFacetERC20', diamondAddress)
     ownershipFacetContract = await ethers.getContractAt('OwnershipFacet', diamondAddress)
@@ -47,6 +53,120 @@ describe('Tests', async function () {
     await tokenContract.mint(deployer.address, ESCROW_VALUE)
     await tokenContract.mint(buyer.address, ESCROW_VALUE)
     await tokenContract.mint(seller.address, ESCROW_VALUE)
+  })
+
+
+  it("UPGRADABILITY: Check all facets within diamond", async () => {
+    let res = await diamondLoupeContract.facets()
+    assert(res.length == 7)
+  })
+
+  it("UPGRADABILITY: Remove a AdminContract from diamond", async () => {
+    const cut: any = []
+    const selectorsToIgnore: any = []
+
+    cut.push({
+      facetAddress: '0x0000000000000000000000000000000000000000',
+      action: FacetCutAction.Remove,
+      functionSelectors: getSelectors(adminFacetContract, selectorsToIgnore)
+    })
+
+    // call to init function
+    let functionCall = diamondInitContract.interface.encodeFunctionData(
+      'init',
+      [feeAccount.address, 100]
+    )
+
+    await diamondCutContract.diamondCut(
+      cut,
+      diamondInitAddr,
+      functionCall
+    )
+  })
+
+  it("UPGRADABILITY: Check all facets within diamond", async () => {
+    let res = await diamondLoupeContract.facets()
+    assert(res.length == 6)
+  })
+
+  it("UPGRADABILITY: Fail to call methods from admin contract", async () => {
+    await expect(
+      adminFacetContract.paused()
+    ).to.be.revertedWith(
+      `Diamond: Function does not exist`
+    );
+  })
+
+  it("UPGRADABILITY: Add a AdminContract to diamond", async () => {
+    const cut: any = []
+    const selectorsToIgnore: any = []
+
+    const facet = await ethers.deployContract('AdminFacet');
+    cut.push({
+      facetAddress: facet.target,
+      action: FacetCutAction.Add,
+      functionSelectors: getSelectors(facet, selectorsToIgnore)
+    })
+
+    await diamondCutContract.diamondCut(
+      cut,
+      '0x0000000000000000000000000000000000000000',
+      '0x'
+    )
+  })
+
+  it("UPGRADABILITY: Check all facets within diamond", async () => {
+    let res = await diamondLoupeContract.facets()
+    assert(res.length == 7)
+  })
+
+  it("UPGRADABILITY: Fail to add AdminContract to diamond again", async () => {
+    const cut: any = []
+    const selectorsToIgnore: any = []
+
+    const facet = await ethers.deployContract('AdminFacet');
+    cut.push({
+      facetAddress: facet.target,
+      action: FacetCutAction.Add,
+      functionSelectors: getSelectors(facet, selectorsToIgnore)
+    })
+
+    // call to init function
+    let functionCall = diamondInitContract.interface.encodeFunctionData(
+      'init',
+      [feeAccount.address, 100]
+    )
+
+    await expect(
+      diamondCutContract.diamondCut(
+        cut,
+        diamondInitAddr,
+        functionCall
+      )
+    ).to.be.revertedWith(
+      "LibDiamondCut: Can't add function that already exists"
+    );
+  })
+
+  it("UPGRADABILITY: Non owner cannot remove AdminContract from diamond", async () => {
+    const cut: any = []
+    const selectorsToIgnore: any = []
+
+    cut.push({
+      facetAddress: '0x0000000000000000000000000000000000000000',
+      action: FacetCutAction.Remove,
+      functionSelectors: getSelectors(adminFacetContract, selectorsToIgnore)
+    })
+
+    await expect(
+      diamondCutContract.connect(secondaryDeployer).diamondCut(
+        cut,
+        '0x0000000000000000000000000000000000000000',
+        '0x'
+      )
+    ).to.be.revertedWith(
+      "LibDiamond: Must be contract owner"
+    );
   })
 
   it("ADMIN: [OWNERSHIP] Should fetch and verify the ownership of the contract", async () => {
@@ -163,19 +283,9 @@ describe('Tests', async function () {
   })
 
   it("CORE: [DimaondInit] 0th storage slot must be owner for diamind and address(0) for diamond init", async () => {
-    let storageSlot = await ethers.provider.getStorage(diamondInitAddr, 0);
-    console.log(storageSlot)
-    storageSlot = await ethers.provider.getStorage(diamondAddress, 0);
-    console.log(storageSlot)
-    console.log(deployer.address)
-
-    // const _storageSlot = ethers.keccak256(ethers.toUtf8Bytes("diamond.standard.diamond.storage"));
-    // console.log(_storageSlot)
-    // const storageSlotNumber = BigNumber.from(storageSlot).toString();
-    // console.log(storageSlotNumber)
-    // storageSlot = await ethers.provider.getStorage(diamondAddress, storageSlotNumber);
-    // console.log(storageSlot)
-
+    let storageSlotInit = await ethers.provider.getStorage(diamondInitAddr, 0);
+    let storageSlotDiamond = await ethers.provider.getStorage(diamondAddress, 0);
+    assert(storageSlotInit != storageSlotDiamond)
   })
 
   it("ADMIN [PAUSABLE] Should pause the market", async () => {
@@ -665,5 +775,4 @@ describe('Tests', async function () {
     assert(balanceOfFeeAddress + (feePerParty + feePerParty) == newBalanceOfFeeAddress, "Fee calculations are incorrect")
 
   })
-
 })

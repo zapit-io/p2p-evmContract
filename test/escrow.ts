@@ -7,116 +7,180 @@ import { ethers } from "hardhat";
 
 
 describe('Tests', async function () {
-  let diamondAddress: any;
-  let ownershipFacet: any;
-  let accounts: any;
-  let escrowFacet: any, escrowFacetERC20: any, adminFacet: any, accessControlFacet: any, tokenContract: any;
-  let deployer: any, arbitrator: any, buyer: any, seller: any, feeAccount: any;
-  let FEES: any;
+  let adminFacetContract: any,
+    buyer: any,
+    deployer: any,
+    arbitrator: any,
+    diamondAddress: any,
+    diamondInitAddr: any,
+    diamondInitContract: any,
+    escrowFacet: any,
+    escrowFacetERC20Contract: any,
+    FEES: any,
+    feeAccount: any,
+    ownershipFacetContract: any,
+    secondaryDeployer: any,
+    seller: any,
+    tokenContract: any;
+
+  const ETHERS_VALUE = 100000;
+  const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+  const adminRoleBytes32 = ethers.keccak256(ethers.toUtf8Bytes("ADMIN_ROLE"));
 
   before(async function () {
-    // Contracts are deployed using the first signer/account by default
-    const [_deployer, _arbitrator, _buyer, _seller, _feeAccount] = await ethers.getSigners();
-    deployer = _deployer
-    arbitrator = _arbitrator
-    buyer = _buyer
-    seller = _seller
-    feeAccount = _feeAccount
+    [deployer, arbitrator, buyer, seller, feeAccount, secondaryDeployer] = await ethers.getSigners();
 
-    let res = await deployDiamond()
-    diamondAddress = res['diamondAddr']
-    await deployFacets({ ...res, feeAddress: _feeAccount.address })
-    accounts = await ethers.getSigners()
+    let deployedCoreContracts = await deployDiamond()
+    diamondAddress = deployedCoreContracts['diamondAddr']
+    diamondInitAddr = deployedCoreContracts['diamondInitAddr']
+
+    await deployFacets({ ...deployedCoreContracts, feeAddress: feeAccount.address })
 
     escrowFacet = await ethers.getContractAt('EscrowFacet', diamondAddress)
-    escrowFacetERC20 = await ethers.getContractAt('EscrowFacetERC20', diamondAddress)
-    ownershipFacet = await ethers.getContractAt('OwnershipFacet', diamondAddress)
-    adminFacet = await ethers.getContractAt('AdminFacet', diamondAddress)
-    accessControlFacet = await ethers.getContractAt('AccessControlFacet', diamondAddress)
+    escrowFacetERC20Contract = await ethers.getContractAt('EscrowFacetERC20', diamondAddress)
+    ownershipFacetContract = await ethers.getContractAt('OwnershipFacet', diamondAddress)
+    adminFacetContract = await ethers.getContractAt('AdminFacet', diamondAddress)
+    diamondInitContract = await ethers.getContractAt('DiamondInit', diamondInitAddr)
 
-    const ETHERS_VALUE = 100000;
-    const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
-
+    // Mint some tokens to be used later on to deal with ERC20 tokens
     tokenContract = await deployToken()
-
     await tokenContract.mint(deployer.address, ESCROW_VALUE)
     await tokenContract.mint(buyer.address, ESCROW_VALUE)
     await tokenContract.mint(seller.address, ESCROW_VALUE)
-
-    // await tokenContract.connect(account1).transfer(account2.address, 1)
   })
 
-  it("ADMIN: OWNERSHIP: Should fetch the ownership of the contract", async () => {
-    let res = await ownershipFacet.owner()
-    assert.equal(res, accounts[0].address)
+  it("ADMIN: [OWNERSHIP] Should fetch and verify the ownership of the contract", async () => {
+    let res = await ownershipFacetContract.owner()
+    assert.equal(res, deployer.address)
   })
 
-  it("ADMIN: OWNERSHIP: Should transfer ownership to account[1]", async () => {
-    await ownershipFacet.transferOwnership(accounts[1].address)
-    let res = await ownershipFacet.owner()
-    assert.equal(res, accounts[1].address)
+  it("ADMIN: [OWNERSHIP] Should transfer ownership to account[1] i.e arbitrator", async () => {
+    await ownershipFacetContract.transferOwnership(secondaryDeployer.address)
+    let res = await ownershipFacetContract.owner()
+    assert.equal(res, secondaryDeployer.address)
   })
 
-  it("ADMIN: OWNERSHIP: Should transfer ownership back to account[0]", async () => {
-    await ownershipFacet.connect(accounts[1]).transferOwnership(accounts[0].address)
-    let res = await adminFacet.getArbitrator()
-    assert.equal(res, accounts[0].address)
+  it("ADMIN: [OWNERSHIP] Should transfer ownership back to account[0] i.e deployer", async () => {
+    await ownershipFacetContract.connect(secondaryDeployer).transferOwnership(deployer.address)
+    let res = await adminFacetContract.getArbitrator()
+    assert.equal(res, deployer.address)
   })
 
-  it("ADMIN: ARBITER: Should verify the arbiter", async () => {
-    let res = await adminFacet.getArbitrator()
-    assert.equal(res, accounts[0].address)
-    await adminFacet.setArbitrator(arbitrator.address)
-    res = await adminFacet.getArbitrator()
-    assert.equal(res, accounts[1].address)
+  it("ADMIN: [ARBITER] Should verify the arbiter", async () => {
+    let res = await adminFacetContract.getArbitrator()
+    assert.equal(res, deployer.address)
+    await adminFacetContract.setArbitrator(arbitrator.address)
+    res = await adminFacetContract.getArbitrator()
+    assert.equal(res, arbitrator.address)
   })
 
-  it("ADMIN: FEE ADDRESS: Should fetch the default market fee address", async () => {
-    let res = await adminFacet.getFeeAddress()
+  it("ADMIN: [FEE ADDRESS] Should fetch the default market fee address", async () => {
+    let res = await adminFacetContract.getFeeAddress()
     assert.equal(res, feeAccount.address)
   })
 
-  it("ADMIN: FEE ADDRESS: SET+GET Should set and fetch the default market fee address", async () => {
-    await adminFacet.setFeeAddress(feeAccount.address)
-    let res = await adminFacet.getFeeAddress()
+  it("ADMIN: [FEE ADDRESS] SET+GET Should set and fetch the default market fee address", async () => {
+    await adminFacetContract.setFeeAddress(feeAccount.address)
+    let res = await adminFacetContract.getFeeAddress()
     assert.equal(res, feeAccount.address)
   })
 
-  it("ADMIN: Fees: Should fetch the market fee set", async () => {
-    let res = await adminFacet.getFees()
+  it("ADMIN: [Fees] Should fetch the market fee set", async () => {
+    let res = await adminFacetContract.getFees()
     FEES = parseFloat(res)
     assert.equal(FEES, 100)
   })
 
-  it("PAUSABLE: Market should not be paused initially", async () => {
-    let res = await adminFacet.paused()
+  it("ADMIN: [PAUSABLE] Market should not be paused initially", async () => {
+    let res = await adminFacetContract.paused()
     assert(res == false)
   })
 
-  // it("PAUSABLE: Should pause the market via Admin", async () => {
+  it("ADMIN: [ROLE] Check deployer hasRole", async () => {
+    const hasRoleSet = await adminFacetContract.hasRole(adminRoleBytes32, deployer.address)
+    assert(hasRoleSet == true)
+  })
 
+  it("ADMIN: [ROLE] secondaryDeployer hasRole must be false", async () => {
+    const hasRoleSet = await adminFacetContract.hasRole(adminRoleBytes32, secondaryDeployer.address)
+    assert(hasRoleSet == false)
+  })
 
-  //   // const adminRoleBytes32 = ethers.encodeBytes32String("ADMIN_ROLE");
+  it("ADMIN: [ROLE] Grant Role to secondaryDeployer", async () => {
+    await adminFacetContract.grantRole(adminRoleBytes32, secondaryDeployer.address);
+    const hasRoleSet = await adminFacetContract.hasRole(adminRoleBytes32, secondaryDeployer.address)
+    assert(hasRoleSet == true)
+  })
 
-  //   // await accessControlFacet.grantRole(adminRoleBytes32, deployer.address);
+  it("ADMIN: [ROLE] secondaryDeployer hasRole must be true", async () => {
+    const hasRoleSet = await adminFacetContract.hasRole(adminRoleBytes32, secondaryDeployer.address)
+    assert(hasRoleSet == true)
+  })
 
-  //   const adminRoleBytes32 = '0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775'
+  it("ADMIN: [ROLE] secondaryDeployer must be able to pause and unpause the market", async () => {
+    await adminFacetContract.connect(secondaryDeployer).pause()
+    let res = await adminFacetContract.paused()
+    assert(res == true)
+    await adminFacetContract.unpause()
+    res = await adminFacetContract.paused()
+    assert(res == false)
+  })
 
-  //   console.log('adminRoleBytes32: ', adminRoleBytes32)
-  //   console.log('deployer.address: ', deployer.address)
+  it("ADMIN: [ROLE] Revert Unauthorized Grant Role invocation from non admin account", async () => {
+    await expect(
+      adminFacetContract.connect(arbitrator).grantRole(adminRoleBytes32, deployer.address)
+    ).to.be.revertedWithCustomError(
+      adminFacetContract,
+      "AccessControlUnauthorizedAccount"
+    ).withArgs(arbitrator.address, adminRoleBytes32);
+  })
 
-  //   const yeah = await accessControlFacet.hasRole(adminRoleBytes32, deployer.address)
-  //   console.log(yeah)
+  it("ADMIN: [ROLE] Revoke Role", async () => {
+    await adminFacetContract.revokeRole(adminRoleBytes32, secondaryDeployer.address);
+  })
 
-  //   await adminFacet.pauseViaAdmin()
+  it("ADMIN: [ROLE] secondaryDeployer hasRole must be false", async () => {
+    const hasRoleSet = await adminFacetContract.hasRole(adminRoleBytes32, secondaryDeployer.address)
+    assert(hasRoleSet == false)
+  })
 
-  //   let res = await adminFacet.paused()
-  //   assert(res == true)
-  // })
+  it("ADMIN: [ROLE] Assign role to secondaryDeployer and it must renounce the Role", async () => {
+    await adminFacetContract.grantRole(adminRoleBytes32, secondaryDeployer.address);
+    let hasRoleSet = await adminFacetContract.hasRole(adminRoleBytes32, secondaryDeployer.address)
+    assert(hasRoleSet == true)
 
-  it("PAUSABLE: Should pause the market", async () => {
-    await adminFacet.pause()
-    let res = await adminFacet.paused()
+    await adminFacetContract.connect(secondaryDeployer).renounceRole(adminRoleBytes32, secondaryDeployer.address);
+    hasRoleSet = await adminFacetContract.hasRole(adminRoleBytes32, secondaryDeployer.address)
+    assert(hasRoleSet == false)
+  })
+
+  it("CORE: [DimaondInit] Should not be able to execute as it can only be called by the owner", async () => {
+    await expect(
+      diamondInitContract.init(feeAccount.address, FEES)
+    ).to.be.revertedWith(
+      `LibDiamond: Must be contract owner`
+    );
+  })
+
+  it("CORE: [DimaondInit] 0th storage slot must be owner for diamind and address(0) for diamond init", async () => {
+    let storageSlot = await ethers.provider.getStorage(diamondInitAddr, 0);
+    console.log(storageSlot)
+    storageSlot = await ethers.provider.getStorage(diamondAddress, 0);
+    console.log(storageSlot)
+    console.log(deployer.address)
+
+    // const _storageSlot = ethers.keccak256(ethers.toUtf8Bytes("diamond.standard.diamond.storage"));
+    // console.log(_storageSlot)
+    // const storageSlotNumber = BigNumber.from(storageSlot).toString();
+    // console.log(storageSlotNumber)
+    // storageSlot = await ethers.provider.getStorage(diamondAddress, storageSlotNumber);
+    // console.log(storageSlot)
+
+  })
+
+  it("ADMIN [PAUSABLE] Should pause the market", async () => {
+    await adminFacetContract.pause()
+    let res = await adminFacetContract.paused()
     assert(res == true)
   })
 
@@ -130,7 +194,7 @@ describe('Tests', async function () {
       const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
       await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
 
-      await escrowFacetERC20.connect(seller).createEscrowERC20(
+      await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
         buyer.address,
         ESCROW_VALUE,
         EXT_TRADE_RANDOM,
@@ -143,8 +207,8 @@ describe('Tests', async function () {
   })
 
   it("PAUSABLE: Should unpause the market", async () => {
-    await adminFacet.unpause()
-    let res = await adminFacet.paused()
+    await adminFacetContract.unpause()
+    let res = await adminFacetContract.paused()
     assert(res == false)
   })
 
@@ -158,7 +222,7 @@ describe('Tests', async function () {
       const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
       await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
 
-      await escrowFacetERC20.connect(seller).createEscrowERC20(
+      await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
         buyer.address,
         ESCROW_VALUE,
         EXT_TRADE_RANDOM,
@@ -171,12 +235,12 @@ describe('Tests', async function () {
   })
 
   it("WHITELIST: Whitelist base currency", async () => {
-    await adminFacet.setWhitelistedCurrencies(ZeroAddress, true)
-    await adminFacet.setWhitelistedCurrencies(tokenContract.target, true)
+    await adminFacetContract.setWhitelistedCurrencies(ZeroAddress, true)
+    await adminFacetContract.setWhitelistedCurrencies(tokenContract.target, true)
 
-    let res = await adminFacet.getWhitelistedCurrencies(ZeroAddress)
+    let res = await adminFacetContract.getWhitelistedCurrencies(ZeroAddress)
     assert(res == true)
-    res = await adminFacet.getWhitelistedCurrencies(tokenContract.target)
+    res = await adminFacetContract.getWhitelistedCurrencies(tokenContract.target)
     assert(res == true)
   })
 
@@ -206,7 +270,7 @@ describe('Tests', async function () {
 
     const response = await res.wait()
     const tradeHash = response.logs[0].args[0]
-    let escrowStruct = await adminFacet.getEscrow(tradeHash);
+    let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active")
 
     // // escrowFacet.
@@ -220,7 +284,7 @@ describe('Tests', async function () {
     // Complete the trade
     res = await escrowFacet.connect(seller).executeOrder(tradeHash, sig)
 
-    escrowStruct = await adminFacet.getEscrow(tradeHash);
+    escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == false, "Escrow still active")
 
 
@@ -261,13 +325,13 @@ describe('Tests', async function () {
 
     const response = await res.wait()
     const tradeHash = response.logs[0].args[0]
-    let escrowStruct = await adminFacet.getEscrow(tradeHash);
+    let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active")
 
     // Complete the trade
     res = await escrowFacet.connect(buyer).buyerCancel(tradeHash)
 
-    escrowStruct = await adminFacet.getEscrow(tradeHash);
+    escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == false, "Escrow still active")
 
     // Check funds of buyer, seller and fee address
@@ -307,7 +371,7 @@ describe('Tests', async function () {
 
     const response = await res.wait()
     const tradeHash = response.logs[0].args[0]
-    let escrowStruct = await adminFacet.getEscrow(tradeHash);
+    let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active")
 
 
@@ -322,7 +386,7 @@ describe('Tests', async function () {
     // Complete the trade
     res = await escrowFacet.connect(buyer).claimDisputedOrder(tradeHash, sig)
 
-    escrowStruct = await adminFacet.getEscrow(tradeHash);
+    escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == false, "Escrow still active")
 
     // Check funds of buyer, seller and fee address
@@ -363,7 +427,7 @@ describe('Tests', async function () {
 
     const response = await res.wait()
     const tradeHash = response.logs[0].args[0]
-    let escrowStruct = await adminFacet.getEscrow(tradeHash);
+    let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active")
 
     // escrowFacet.
@@ -377,7 +441,7 @@ describe('Tests', async function () {
     // Complete the trade
     res = await escrowFacet.connect(seller).claimDisputedOrder(tradeHash, sig)
 
-    escrowStruct = await adminFacet.getEscrow(tradeHash);
+    escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == false, "Escrow still active")
 
     // Check funds of buyer, seller and fee address
@@ -392,7 +456,7 @@ describe('Tests', async function () {
     // })
   })
 
-  it("EscrowFacetERC20: Create and Complete Native currency trade", async () => {
+  it("EscrowFacetERC20Contract: Create and Complete Native currency trade", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("0123");
     const ETHERS_VALUE = 10000;
     const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
@@ -409,7 +473,7 @@ describe('Tests', async function () {
 
     await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
 
-    let res = await escrowFacetERC20.connect(seller).createEscrowERC20(
+    let res = await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
       buyer.address,
       ESCROW_VALUE,
       EXT_TRADE_RANDOM,
@@ -419,7 +483,7 @@ describe('Tests', async function () {
     const response = await res.wait()
 
     const tradeHash = response.logs[2].args[0]
-    let escrowStruct = await adminFacet.getEscrow(tradeHash);
+    let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active")
 
     // // escrowFacet.
@@ -431,9 +495,9 @@ describe('Tests', async function () {
     assert(_signatory == seller.address, "Invalid signatory")
 
     // Complete the trade
-    res = await escrowFacetERC20.connect(seller).executeOrderERC20(tradeHash, sig)
+    res = await escrowFacetERC20Contract.connect(seller).executeOrderERC20(tradeHash, sig)
 
-    escrowStruct = await adminFacet.getEscrow(tradeHash);
+    escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == false, "Escrow still active")
 
 
@@ -464,7 +528,7 @@ describe('Tests', async function () {
     let balanceOfContract = await tokenContract.balanceOf(diamondAddress)
     let balanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
 
-    let res = await escrowFacetERC20.connect(seller).createEscrowERC20(
+    let res = await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
       buyer.address,
       ESCROW_VALUE,
       EXT_TRADE_RANDOM,
@@ -474,13 +538,13 @@ describe('Tests', async function () {
     const response = await res.wait()
 
     const tradeHash = response.logs[2].args[0]
-    let escrowStruct = await adminFacet.getEscrow(tradeHash);
+    let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active")
 
     // Buyer cancels the trade
-    res = await escrowFacetERC20.connect(buyer).buyerCancelERC20(tradeHash)
+    res = await escrowFacetERC20Contract.connect(buyer).buyerCancelERC20(tradeHash)
 
-    escrowStruct = await adminFacet.getEscrow(tradeHash);
+    escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == false, "Escrow still active")
 
     const newBalanceOfSeller = await tokenContract.balanceOf(seller)
@@ -510,7 +574,7 @@ describe('Tests', async function () {
     let balanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
     await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
 
-    let res = await escrowFacetERC20.connect(seller).createEscrowERC20(
+    let res = await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
       buyer.address,
       ESCROW_VALUE,
       EXT_TRADE_RANDOM,
@@ -519,7 +583,7 @@ describe('Tests', async function () {
     const response = await res.wait()
 
     const tradeHash = response.logs[2].args[0]
-    let escrowStruct = await adminFacet.getEscrow(tradeHash);
+    let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active")
 
     // escrowFacet.
@@ -531,9 +595,9 @@ describe('Tests', async function () {
     assert(_signatory == arbitrator.address, "Invalid signatory")
 
     // Complete the trade
-    res = await escrowFacetERC20.connect(seller).claimDisputedOrderERC20(tradeHash, sig)
+    res = await escrowFacetERC20Contract.connect(seller).claimDisputedOrderERC20(tradeHash, sig)
 
-    escrowStruct = await adminFacet.getEscrow(tradeHash);
+    escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == false, "Escrow still active")
 
     const newBalanceOfSeller = await tokenContract.balanceOf(seller)
@@ -564,7 +628,7 @@ describe('Tests', async function () {
     let balanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
     await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
 
-    let res = await escrowFacetERC20.connect(seller).createEscrowERC20(
+    let res = await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
       buyer.address,
       ESCROW_VALUE,
       EXT_TRADE_RANDOM,
@@ -573,7 +637,7 @@ describe('Tests', async function () {
     const response = await res.wait()
 
     const tradeHash = response.logs[2].args[0]
-    let escrowStruct = await adminFacet.getEscrow(tradeHash);
+    let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active")
 
     // escrowFacet.
@@ -585,9 +649,9 @@ describe('Tests', async function () {
     assert(_signatory == arbitrator.address, "Invalid signatory")
 
     // Complete the trade
-    res = await escrowFacetERC20.connect(buyer).claimDisputedOrderERC20(tradeHash, sig)
+    res = await escrowFacetERC20Contract.connect(buyer).claimDisputedOrderERC20(tradeHash, sig)
 
-    escrowStruct = await adminFacet.getEscrow(tradeHash);
+    escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == false, "Escrow still active")
 
     const newBalanceOfSeller = await tokenContract.balanceOf(seller)

@@ -40,8 +40,7 @@ async function main(params) {
       'SignatureFacet',
       'AdminFacet',
       'EscrowFacetERC20',
-      'EscrowFacet',
-      'AccessControlFacet'
+      'EscrowFacet'
     ]
   }
 
@@ -111,19 +110,11 @@ async function main(params) {
   // return
 
   try {
-
-    console.log('diamondInitAddr: ', diamondInitAddr)
     const diamondInit = await ethers.getContractAt('DiamondInit', diamondInitAddr)
     if (!feeAddress) {
       const accounts = await ethers.getSigners()
       feeAddress = accounts[4].address
     }
-
-    console.log('feeAddress: ', feeAddress)
-    console.log('diamondInit', diamondInit)
-    console.log('diamondInit address', diamondInit.target)
-
-    // return
 
     // call to init function
     let functionCall = diamondInit.interface.encodeFunctionData(

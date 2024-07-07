@@ -43,8 +43,7 @@ async function main(params) {
       'SignatureFacet',
       'AdminFacet',
       'EscrowFacetERC20',
-      'EscrowFacet',
-      'AccessControlFacet'
+      'EscrowFacet'
     ]
   }
 

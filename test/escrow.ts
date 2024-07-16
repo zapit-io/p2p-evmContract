@@ -18,7 +18,7 @@ const { getSelectors, FacetCutAction } = require('../scripts/libraries/diamond.j
  * @throws {Error} - Throws an error if the type is unsupported.
  */
 const getOrderValues = ({ amount, fee, type }: { amount: number, fee: number, type: string }) => {
-  let orderValue: bigint, orderValueToSend: bigint, sellerFees: bigint;
+  let orderValue: bigint, orderValueToSend: bigint, feePerParty: bigint;
   switch (type) {
     case 'NATIVE':
       orderValue = ethers.parseUnits(amount.toString(), 18);
@@ -30,9 +30,9 @@ const getOrderValues = ({ amount, fee, type }: { amount: number, fee: number, ty
       throw new Error(`Unsupported type: ${type}`);
   }
 
-  sellerFees = (orderValue * BigInt(fee)) / (BigInt(10000) * BigInt(2));
-  orderValueToSend = orderValue + sellerFees;
-  return { orderValue, orderValueToSend, sellerFees };
+  feePerParty = (orderValue * BigInt(fee)) / (BigInt(10000) * BigInt(2));
+  orderValueToSend = orderValue + feePerParty;
+  return { orderValue, orderValueToSend, feePerParty };
 }
 
 /**
@@ -545,8 +545,7 @@ describe('Tests', async function () {
     const extTradeIdentifier = ethers.encodeBytes32String("123");
     const amount = 0.237;
     const fee = await adminFacetContract.getFees();
-
-    const { orderValue, orderValueToSend, sellerFees } = getOrderValues({ amount, fee, type: 'NATIVE' });
+    const { orderValue, orderValueToSend, feePerParty } = getOrderValues({ amount, fee, type: 'NATIVE' });
 
     // Check initial balances of buyer, seller, and fee account
     const sellerBalanceBefore = await ethers.provider.getBalance(seller.address);
@@ -554,15 +553,16 @@ describe('Tests', async function () {
     const feeAccountBalanceBefore = await ethers.provider.getBalance(feeAccount.address);
 
     // Create escrow for native currency
-    let res = await escrowFacet.connect(seller).createEscrowNative(
+    let tx = await escrowFacet.connect(seller).createEscrowNative(
       buyer.address,
       orderValue,
       extTradeIdentifier,
       { value: orderValueToSend }
     );
+    let receipt = await tx.wait()
+    let feeSpent = receipt.gasUsed * receipt.gasPrice;
 
-    const response = await res.wait();
-    const tradeHash = response.logs[0].args[0];
+    const tradeHash = receipt.logs[0].args[0];
     let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active");
 
@@ -575,7 +575,9 @@ describe('Tests', async function () {
     assert(_signatory == seller.address, "Invalid signatory");
 
     // Complete the trade
-    res = await escrowFacet.connect(seller).executeOrder(tradeHash, sig);
+    tx = await escrowFacet.connect(seller).executeOrder(tradeHash, sig);
+    receipt = await tx.wait()
+    feeSpent += receipt.gasUsed * receipt.gasPrice;
 
     escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == false, "Escrow still active");
@@ -586,9 +588,9 @@ describe('Tests', async function () {
     const feeAccountBalanceAfter = await ethers.provider.getBalance(feeAccount.address);
 
     // Assertions to verify balance changes
-    assert(sellerBalanceAfter < sellerBalanceBefore, "Seller balance should decrease");
-    assert(buyerBalanceAfter > buyerBalanceBefore, "Buyer balance should increase");
-    assert(feeAccountBalanceAfter - feeAccountBalanceBefore === sellerFees * BigInt(2), "Fee account balance should increase exactly by the seller fee");
+    assert(sellerBalanceAfter + BigInt(feeSpent) + orderValue + feePerParty == sellerBalanceBefore, "Seller balance should decrease");
+    assert(buyerBalanceAfter - orderValue + feePerParty == buyerBalanceBefore, "Buyer balance should increase");
+    assert(feeAccountBalanceAfter - feeAccountBalanceBefore === feePerParty * BigInt(2), "Fee account balance should increase exactly by the seller fee");
   })
 
   /**
@@ -600,10 +602,8 @@ describe('Tests', async function () {
     // Define external trade identifier and order value in ETH
     const extTradeIdentifier = ethers.encodeBytes32String("234");
     const amount = 1;
-
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
-
     // Calculate order values based on the native currency and fee
     const { orderValue, orderValueToSend } = getOrderValues({ amount, fee, type: 'NATIVE' });
 
@@ -613,20 +613,23 @@ describe('Tests', async function () {
     const feeAccountBalanceBefore = await ethers.provider.getBalance(feeAccount.address);
 
     // Create escrow for native currency
-    let res = await escrowFacet.createEscrowNative(buyer.address, orderValue, extTradeIdentifier, {
+    let tx = await escrowFacet.connect(seller).createEscrowNative(buyer.address, orderValue, extTradeIdentifier, {
       value: orderValueToSend,
     });
+    let receipt = await tx.wait()
+    let feeSpentFromSeller = receipt.gasUsed * receipt.gasPrice;
 
     // Wait for the transaction to be mined and get the trade hash from the logs
-    const response = await res.wait();
-    const tradeHash = response.logs[0].args[0];
+    const tradeHash = receipt.logs[0].args[0];
 
     // Retrieve the escrow structure and assert that the escrow is active
     let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active");
 
     // Cancel the trade as the buyer
-    res = await escrowFacet.connect(buyer).buyerCancel(tradeHash);
+    tx = await escrowFacet.connect(buyer).buyerCancel(tradeHash);
+    receipt = await tx.wait()
+    let feeSpentFromBuyer = receipt.gasUsed * receipt.gasPrice;
 
     // Retrieve the escrow structure again and assert that the escrow is no longer active
     escrowStruct = await adminFacetContract.getEscrow(tradeHash);
@@ -638,8 +641,8 @@ describe('Tests', async function () {
     const feeAccountBalanceAfter = await ethers.provider.getBalance(feeAccount.address);
 
     // Assertions to verify balance changes
-    assert(sellerBalanceAfter == sellerBalanceBefore, "Seller balance should remain the same");
-    assert(buyerBalanceAfter < buyerBalanceBefore, "Buyer balance should decrease due to gas fees");
+    assert(sellerBalanceAfter + BigInt(feeSpentFromSeller) == sellerBalanceBefore, "Seller balance should remain the same");
+    assert(buyerBalanceAfter + BigInt(feeSpentFromBuyer) == buyerBalanceBefore, "Buyer balance should decrease due to gas fees");
     assert(feeAccountBalanceAfter == feeAccountBalanceBefore, "Fee account balance should remain the same");
   });
 
@@ -650,12 +653,10 @@ describe('Tests', async function () {
   it("EscrowFacet: Create and Claim dispute (Buyer)", async () => {
     const extTradeIdentifier = ethers.encodeBytes32String("345");
     const amount = 1;
-
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
-
     // Calculate order values based on the native currency and fee
-    const { orderValue, orderValueToSend, sellerFees } = getOrderValues({ amount, fee, type: 'NATIVE' });
+    const { orderValue, orderValueToSend, feePerParty } = getOrderValues({ amount, fee, type: 'NATIVE' });
 
     // Check initial balances of buyer, seller, and fee account
     const sellerBalanceBefore = await ethers.provider.getBalance(seller.address);
@@ -663,13 +664,14 @@ describe('Tests', async function () {
     const feeAccountBalanceBefore = await ethers.provider.getBalance(feeAccount.address);
 
     // Create escrow for native currency
-    let res = await escrowFacet.connect(seller).createEscrowNative(buyer.address, orderValue, extTradeIdentifier, {
+    let tx = await escrowFacet.connect(seller).createEscrowNative(buyer.address, orderValue, extTradeIdentifier, {
       value: orderValueToSend,
     });
+    let receipt = await tx.wait()
+    const feeSpentFromSeller = receipt.gasUsed * receipt.gasPrice;
 
     // Wait for the transaction to be mined and get the trade hash from the logs
-    const response = await res.wait();
-    const tradeHash = response.logs[0].args[0];
+    const tradeHash = receipt.logs[0].args[0];
 
     // Retrieve the escrow structure and assert that the escrow is active
     let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
@@ -685,7 +687,9 @@ describe('Tests', async function () {
     assert(_signatory == arbitrator.address, "Invalid signatory");
 
     // Complete the trade by claiming the disputed order
-    res = await escrowFacet.connect(buyer).claimDisputedOrder(tradeHash, sig);
+    tx = await escrowFacet.connect(buyer).claimDisputedOrder(tradeHash, sig);
+    receipt = await tx.wait()
+    const feeSpentFromBuyer = receipt.gasUsed * receipt.gasPrice;
 
     // Retrieve the escrow structure again and assert that the escrow is no longer active
     escrowStruct = await adminFacetContract.getEscrow(tradeHash);
@@ -697,9 +701,9 @@ describe('Tests', async function () {
     const feeAccountBalanceAfter = await ethers.provider.getBalance(feeAccount.address);
 
     // Assertions to verify balance changes
-    assert(sellerBalanceAfter < sellerBalanceBefore, "Seller balance should decrease");
-    assert(buyerBalanceAfter > buyerBalanceBefore, "Buyer balance should increase");
-    assert(feeAccountBalanceAfter - feeAccountBalanceBefore === sellerFees * BigInt(2), "Fee account balance should increase exactly by the seller fee");
+    assert(sellerBalanceAfter + BigInt(feeSpentFromSeller) + orderValue + feePerParty == sellerBalanceBefore, "Seller balance should decrease");
+    assert(buyerBalanceAfter == buyerBalanceBefore - BigInt(feeSpentFromBuyer) + orderValue - feePerParty, "Buyer balance should increase");
+    assert(feeAccountBalanceAfter - feeAccountBalanceBefore === feePerParty * BigInt(2), "Fee account balance should increase exactly by the seller fee");
   });
 
   /**
@@ -711,24 +715,23 @@ describe('Tests', async function () {
   it("EscrowFacet: Create and Claim dispute (Seller)", async () => {
     const extTradeIdentifier = ethers.encodeBytes32String("456");
     const amount = 1;
-
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
-
     // Calculate order values based on the native currency and fee
-    const { orderValue, orderValueToSend, sellerFees } = getOrderValues({ amount, fee, type: 'NATIVE' });
+    const { orderValue, orderValueToSend } = getOrderValues({ amount, fee, type: 'NATIVE' });
 
     // Check funds of buyer, seller and fee address
     const sellerBalanceBefore = await ethers.provider.getBalance(seller.address)
     const buyerBalanceBefore = await ethers.provider.getBalance(buyer.address)
     const feeAccountBalanceBefore = await ethers.provider.getBalance(feeAccount.address)
 
-    let res = await escrowFacet.connect(seller).createEscrowNative(buyer.address, orderValue, extTradeIdentifier, {
+    let tx = await escrowFacet.connect(seller).createEscrowNative(buyer.address, orderValue, extTradeIdentifier, {
       value: orderValueToSend,
-    })
+    });
+    let receipt = await tx.wait()
+    let feeSpent = receipt.gasUsed * receipt.gasPrice;
 
-    const response = await res.wait()
-    const tradeHash = response.logs[0].args[0]
+    const tradeHash = receipt.logs[0].args[0]
     let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active")
 
@@ -741,7 +744,9 @@ describe('Tests', async function () {
     assert(_signatory == arbitrator.address, "Invalid signatory")
 
     // Complete the trade
-    res = await escrowFacet.connect(seller).claimDisputedOrder(tradeHash, sig)
+    tx = await escrowFacet.connect(seller).claimDisputedOrder(tradeHash, sig)
+    receipt = await tx.wait()
+    feeSpent += receipt.gasUsed * receipt.gasPrice;
 
     escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == false, "Escrow still active")
@@ -752,7 +757,7 @@ describe('Tests', async function () {
     const feeAccountBalanceAfter = await ethers.provider.getBalance(feeAccount.address)
 
     // Assertions to verify balance changes
-    assert(sellerBalanceAfter < sellerBalanceBefore, "Seller balance should decrease because of the fee paid")
+    assert(sellerBalanceAfter + BigInt(feeSpent) == sellerBalanceBefore, "Seller balance should decrease because of the fee paid")
     assert(buyerBalanceAfter == buyerBalanceBefore, "Buyer balance should stay the same")
     assert(feeAccountBalanceAfter == feeAccountBalanceBefore, "Fee account balance should stay the same")
   })
@@ -765,12 +770,10 @@ describe('Tests', async function () {
   it("EscrowFacetERC20Contract: Create and Complete ERC20 currency trade", async () => {
     const extTradeIdentifier = ethers.encodeBytes32String("0123");
     const amount = 10000;
-
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
-
     // Calculate order values based on the ERC20 currency and fee
-    const { orderValue, orderValueToSend, sellerFees } = await getOrderValues({ amount, fee, type: 'ERC20' });
+    const { orderValue, orderValueToSend, feePerParty } = await getOrderValues({ amount, fee, type: 'ERC20' });
 
     // Check initial balances of buyer, seller, contract, and fee account
     const balanceOfSeller = await tokenContract.balanceOf(seller);
@@ -782,15 +785,15 @@ describe('Tests', async function () {
     await tokenContract.connect(seller).increaseAllowance(diamondAddress, orderValueToSend);
 
     // Create escrow for ERC20 currency
-    let res = await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
+    const tx = await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
       buyer.address,
       orderValue,
       extTradeIdentifier,
       tokenContract.target
     );
+    const receipt = await tx.wait()
 
-    const response = await res.wait();
-    const tradeHash = response.logs[2].args[0];
+    const tradeHash = receipt.logs[2].args[0];
     let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == true, "Escrow is not active");
 
@@ -803,7 +806,7 @@ describe('Tests', async function () {
     assert(_signatory == seller.address, "Invalid signatory");
 
     // Complete the trade
-    res = await escrowFacetERC20Contract.connect(seller).executeOrderERC20(tradeHash, sig);
+    await escrowFacetERC20Contract.connect(seller).executeOrderERC20(tradeHash, sig);
 
     escrowStruct = await adminFacetContract.getEscrow(tradeHash);
     assert(escrowStruct[7] == false, "Escrow still active");
@@ -815,10 +818,10 @@ describe('Tests', async function () {
     const newBalanceOfFeeAddress = await tokenContract.balanceOf(feeAccount);
 
     // Assertions to verify balance changes
-    assert(BigInt(balanceOfSeller) - BigInt(newBalanceOfSeller) == orderValue + sellerFees, "Seller balance should decrease");
-    assert(BigInt(newBalanceOfBuyer) - BigInt(balanceOfBuyer) == orderValue - sellerFees, "Buyer balance should increase");
+    assert(BigInt(balanceOfSeller) - BigInt(newBalanceOfSeller) == orderValue + feePerParty, "Seller balance should decrease");
+    assert(BigInt(newBalanceOfBuyer) - BigInt(balanceOfBuyer) == orderValue - feePerParty, "Buyer balance should increase");
     assert(newBalanceOfContract == balanceOfContract, "Contract balance should remain the same");
-    assert(newBalanceOfFeeAddress + balanceOfFeeAddress == sellerFees * BigInt(2), "Fee account balance should increase");
+    assert(newBalanceOfFeeAddress + balanceOfFeeAddress == feePerParty * BigInt(2), "Fee account balance should increase");
   })
 
   /**
@@ -829,10 +832,8 @@ describe('Tests', async function () {
   it("EscrowFacet: Create and Cancel order", async () => {
     const extTradeIdentifier = ethers.encodeBytes32String("0234");
     const amount = 10000;
-
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
-
     // Calculate order values based on the ERC20 currency and fee
     const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, type: 'ERC20' });
 
@@ -885,10 +886,8 @@ describe('Tests', async function () {
   it("EscrowFacet: Create and Claim dispute (Seller)", async () => {
     const extTradeIdentifier = ethers.encodeBytes32String("0456");
     const amount = 10000;
-
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
-
     // Calculate order values based on the ERC20 currency and fee
     const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, type: 'ERC20' });
 
@@ -948,12 +947,10 @@ describe('Tests', async function () {
   it("EscrowFacet: Create and Claim dispute (Buyer)", async () => {
     const extTradeIdentifier = ethers.encodeBytes32String("0567");
     const amount = 10000;
-
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
-
     // Calculate order values based on the ERC20 currency and fee
-    const { orderValue, orderValueToSend, sellerFees } = await getOrderValues({ amount, fee, type: 'ERC20' });
+    const { orderValue, orderValueToSend, feePerParty } = await getOrderValues({ amount, fee, type: 'ERC20' });
 
     // Check initial balances of seller, buyer, contract, and fee account
     const balanceOfSeller = await tokenContract.balanceOf(seller);
@@ -998,9 +995,9 @@ describe('Tests', async function () {
     const newBalanceOfFeeAddress = await tokenContract.balanceOf(feeAccount);
 
     // Assertions to verify balance changes
-    assert(balanceOfSeller - (orderValue + sellerFees) == newBalanceOfSeller, "Fee calculations are incorrect");
-    assert(balanceOfBuyer + (orderValue - sellerFees) == newBalanceOfBuyer, "Fee calculations are incorrect");
+    assert(balanceOfSeller - (orderValue + feePerParty) == newBalanceOfSeller, "Fee calculations are incorrect");
+    assert(balanceOfBuyer + (orderValue - feePerParty) == newBalanceOfBuyer, "Fee calculations are incorrect");
     assert(newBalanceOfContract == balanceOfContract, "Fee calculations are incorrect");
-    assert(BigInt(newBalanceOfFeeAddress) - BigInt(balanceOfFeeAddress) == sellerFees * BigInt(2), "Fee calculations are incorrect");
+    assert(BigInt(newBalanceOfFeeAddress) - BigInt(balanceOfFeeAddress) == feePerParty * BigInt(2), "Fee calculations are incorrect");
   })
 })

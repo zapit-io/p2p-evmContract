@@ -19,10 +19,9 @@ const { getSelectors, FacetCutAction } = require('../scripts/libraries/diamond.j
  */
 const getOrderValues = ({ amount, fee, type }: { amount: number, fee: number, type: string }) => {
   let orderValue: bigint, orderValueToSend: bigint, sellerFees: bigint;
-
   switch (type) {
     case 'NATIVE':
-      orderValue = ethers.parseEther(amount.toString());
+      orderValue = ethers.parseUnits(amount.toString(), 18);
       break;
     case 'ERC20':
       orderValue = ethers.parseUnits(amount.toString(), 0);
@@ -58,8 +57,6 @@ describe('Tests', async function () {
     seller: any,
     tokenContract: any;
 
-  const WEI_VALUE = 100000;
-  const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0);
   const adminRoleBytes32 = ethers.keccak256(ethers.toUtf8Bytes("ADMIN_ROLE"));
   /**
    * Before hook to set up the test environment.
@@ -89,11 +86,13 @@ describe('Tests', async function () {
 
     // Deploy and mint tokens for the deployer, buyer, and seller
     tokenContract = await deployToken();
-    await tokenContract.mint(deployer.address, ESCROW_VALUE);
-    await tokenContract.mint(buyer.address, ESCROW_VALUE);
-    await tokenContract.mint(seller.address, ESCROW_VALUE);
-  })
 
+    const amount = 100000;
+    const mintAmount = ethers.parseUnits(amount.toString(), 0);
+    await tokenContract.mint(deployer.address, mintAmount);
+    await tokenContract.mint(buyer.address, mintAmount);
+    await tokenContract.mint(seller.address, mintAmount);
+  })
 
   /**
    * Test to verify the number of facets within the diamond contract.
@@ -104,6 +103,10 @@ describe('Tests', async function () {
     assert(res.length == 7, "Expected 7 facets in the diamond contract");
   });
 
+  /**
+   * Test to remove the AdminFacet from the diamond contract.
+   * This ensures that the AdminFacet can be successfully removed from the diamond contract.
+   */
   it("UPGRADABILITY: Remove the AdminFacet from the diamond contract", async () => {
     // Define the cut array to specify the facet removal
     const cut: any = [];
@@ -403,6 +406,7 @@ describe('Tests', async function () {
     const hasRoleSet = await adminFacetContract.hasRole(adminRoleBytes32, secondaryDeployer.address);
     assert(hasRoleSet == false);
   });
+
   /**
    * Test to assign the admin role to the secondary deployer and ensure it can renounce the role.
    * This verifies that role assignment and renouncement work as expected.
@@ -456,16 +460,17 @@ describe('Tests', async function () {
   it("PAUSABLE: Fail to create order due to paused contract", async () => {
     try {
       const extTradeIdentifier = ethers.encodeBytes32String("x-0234");
-      const WEI_VALUE = 10000;
-      const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0);
+      const amount = 10000;
+      // Retrieve the fee from the admin facet contract
+      const fee = await adminFacetContract.getFees();
+      // Calculate order values based on the ERC20 currency and fee
+      const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, type: 'ERC20' });
 
-      const WEI_VALUE_TO_APPROVE = WEI_VALUE * 2;
-      const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(WEI_VALUE_TO_APPROVE.toString(), 0);
-      await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE);
+      await tokenContract.connect(seller).increaseAllowance(diamondAddress, orderValueToSend);
 
       await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
         buyer.address,
-        ESCROW_VALUE,
+        orderValue,
         extTradeIdentifier,
         tokenContract.target
       );
@@ -474,33 +479,42 @@ describe('Tests', async function () {
       assert(e?.message.includes('Pausable: paused') == true, "Order creation should fail due to paused contract");
     }
   });
-  it("PAUSABLE: Should unpause the market", async () => {
-    await adminFacetContract.unpause()
-    let res = await adminFacetContract.paused()
-    assert(res == false)
-  })
 
+  /**
+   * Test to unpause the market using the adminFacetContract.
+   * This ensures that the market can be unpaused correctly.
+   */
+  it("PAUSABLE: Should unpause the market", async () => {
+    await adminFacetContract.unpause();
+    let res = await adminFacetContract.paused();
+    assert(res == false, "Market should be unpaused");
+  });
+
+  /**
+   * Test to ensure that creating an order fails when the currency is not whitelisted.
+   * This verifies that the contract enforces the whitelist correctly.
+   */
   it("WHITELIST: Fail to create order as currency is not whitelisted", async () => {
     try {
       const extTradeIdentifier = ethers.encodeBytes32String("x-0234");
-      const WEI_VALUE = 10000;
-      const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0)
-
-      const WEI_VALUE_TO_APPROVE = WEI_VALUE * 2
-      const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(WEI_VALUE_TO_APPROVE.toString(), 0)
-      await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
+      const amount = 10000;
+      // Retrieve the fee from the admin facet contract
+      const fee = await adminFacetContract.getFees();
+      // Calculate order values based on the ERC20 currency and fee
+      const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, type: 'ERC20' });
+      await tokenContract.connect(seller).increaseAllowance(diamondAddress, orderValueToSend);
 
       await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
         buyer.address,
-        ESCROW_VALUE,
+        orderValue,
         extTradeIdentifier,
         tokenContract.target
-      )
+      );
     } catch (e) {
       // @ts-ignore
-      assert(e?.message.includes('CurrencyNotWhitelisted') == true)
+      assert(e?.message.includes('CurrencyNotWhitelisted') == true, "Order creation should fail due to non-whitelisted currency");
     }
-  })
+  });
 
   /**
    * Test case to whitelist base currency.
@@ -807,157 +821,186 @@ describe('Tests', async function () {
     assert(newBalanceOfFeeAddress + balanceOfFeeAddress == sellerFees * BigInt(2), "Fee account balance should increase");
   })
 
+  /**
+   * Test to create and cancel an ERC20 order.
+   * This test ensures that a seller can create an escrow for an ERC20 currency trade,
+   * and the buyer can subsequently cancel the order.
+   */
   it("EscrowFacet: Create and Cancel order", async () => {
     const extTradeIdentifier = ethers.encodeBytes32String("0234");
-    const WEI_VALUE = 10000;
-    const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0)
+    const amount = 10000;
 
-    const feePerParty = BigInt(WEI_VALUE * 0.005)
+    // Retrieve the fee from the admin facet contract
+    const fee = await adminFacetContract.getFees();
 
-    const WEI_VALUE_TO_APPROVE = WEI_VALUE * 2
-    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(WEI_VALUE_TO_APPROVE.toString(), 0)
-    await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
+    // Calculate order values based on the ERC20 currency and fee
+    const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, type: 'ERC20' });
 
-    let balanceOfSeller = await tokenContract.balanceOf(seller)
-    let balanceOfBuyer = await tokenContract.balanceOf(buyer)
-    let balanceOfContract = await tokenContract.balanceOf(diamondAddress)
-    let balanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
+    // Approve the escrow value to be transferred from the seller to the contract
+    await tokenContract.connect(seller).increaseAllowance(diamondAddress, orderValueToSend);
 
+    // Check initial balances of seller, buyer, contract, and fee account
+    let balanceOfSeller = await tokenContract.balanceOf(seller);
+    let balanceOfBuyer = await tokenContract.balanceOf(buyer);
+    let balanceOfContract = await tokenContract.balanceOf(diamondAddress);
+    let balanceOfFeeAddress = await tokenContract.balanceOf(feeAccount);
+
+    // Create escrow for ERC20 currency
     let res = await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
       buyer.address,
-      ESCROW_VALUE,
+      orderValue,
       extTradeIdentifier,
       tokenContract.target
-    )
+    );
 
-    const response = await res.wait()
-
-    const tradeHash = response.logs[2].args[0]
+    const response = await res.wait();
+    const tradeHash = response.logs[2].args[0];
     let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
-    assert(escrowStruct[7] == true, "Escrow is not active")
+    assert(escrowStruct[7] == true, "Escrow is not active");
 
     // Buyer cancels the trade
-    res = await escrowFacetERC20Contract.connect(buyer).buyerCancelERC20(tradeHash)
+    res = await escrowFacetERC20Contract.connect(buyer).buyerCancelERC20(tradeHash);
 
     escrowStruct = await adminFacetContract.getEscrow(tradeHash);
-    assert(escrowStruct[7] == false, "Escrow still active")
+    assert(escrowStruct[7] == false, "Escrow still active");
 
-    const newBalanceOfSeller = await tokenContract.balanceOf(seller)
-    const newBalanceOfBuyer = await tokenContract.balanceOf(buyer)
-    const newBalanceOfContract = await tokenContract.balanceOf(diamondAddress)
-    const newBalanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
+    // Check final balances of seller, buyer, contract, and fee account
+    const newBalanceOfSeller = await tokenContract.balanceOf(seller);
+    const newBalanceOfBuyer = await tokenContract.balanceOf(buyer);
+    const newBalanceOfContract = await tokenContract.balanceOf(diamondAddress);
+    const newBalanceOfFeeAddress = await tokenContract.balanceOf(feeAccount);
 
-    assert(balanceOfSeller == newBalanceOfSeller, "Fee calculations are incorrect")
-    assert(balanceOfBuyer == newBalanceOfBuyer, "Fee calculations are incorrect")
-    assert(balanceOfContract == newBalanceOfContract, "Fee calculations are incorrect")
-    assert(balanceOfFeeAddress == newBalanceOfFeeAddress, "Fee calculations are incorrect")
+    // Assertions to verify balance changes
+    assert(balanceOfSeller == newBalanceOfSeller, "Seller balance should remain the same");
+    assert(balanceOfBuyer == newBalanceOfBuyer, "Buyer balance should remain the same");
+    assert(balanceOfContract == newBalanceOfContract, "Contract balance should remain the same");
+    assert(balanceOfFeeAddress == newBalanceOfFeeAddress, "Fee account balance should remain the same");
   })
 
+  /**
+   * Test to create and claim a disputed order as the seller.
+   * This test ensures that a seller can create an escrow for an ERC20 currency trade,
+   * and subsequently claim the disputed order with the arbitrator's signature.
+   */
   it("EscrowFacet: Create and Claim dispute (Seller)", async () => {
     const extTradeIdentifier = ethers.encodeBytes32String("0456");
-    const WEI_VALUE = 10000;
-    const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0)
+    const amount = 10000;
 
-    const feePerParty = BigInt(WEI_VALUE * 0.005)
+    // Retrieve the fee from the admin facet contract
+    const fee = await adminFacetContract.getFees();
 
-    const WEI_VALUE_TO_APPROVE = WEI_VALUE * 2
-    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(WEI_VALUE_TO_APPROVE.toString(), 0)
+    // Calculate order values based on the ERC20 currency and fee
+    const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, type: 'ERC20' });
 
-    let balanceOfSeller = await tokenContract.balanceOf(seller)
-    let balanceOfBuyer = await tokenContract.balanceOf(buyer)
-    let balanceOfContract = await tokenContract.balanceOf(diamondAddress)
-    let balanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
-    await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
+    // Check initial balances of seller, buyer, contract, and fee account
+    let balanceOfSeller = await tokenContract.balanceOf(seller);
+    let balanceOfBuyer = await tokenContract.balanceOf(buyer);
+    let balanceOfContract = await tokenContract.balanceOf(diamondAddress);
+    let balanceOfFeeAddress = await tokenContract.balanceOf(feeAccount);
 
+    // Approve the escrow value to be transferred from the seller to the contract
+    await tokenContract.connect(seller).increaseAllowance(diamondAddress, orderValueToSend);
+
+    // Create escrow for ERC20 currency
     let res = await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
       buyer.address,
-      ESCROW_VALUE,
+      orderValue,
       extTradeIdentifier,
       tokenContract.target
-    )
-    const response = await res.wait()
+    );
+    const response = await res.wait();
 
-    const tradeHash = response.logs[2].args[0]
+    const tradeHash = response.logs[2].args[0];
     let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
-    assert(escrowStruct[7] == true, "Escrow is not active")
+    assert(escrowStruct[7] == true, "Escrow is not active");
 
-    // escrowFacet.
-    const messageHash = await escrowFacet.getMessageHash(tradeHash, seller.address)
+    // Generate and verify the message hash and signature
+    const messageHash = await escrowFacet.getMessageHash(tradeHash, seller.address);
     const sig = await arbitrator.signMessage(ethers.getBytes(messageHash));
     const signedMessageHash = await escrowFacet.getEthSignedMessageHash(messageHash);
     const _signatory = await escrowFacet.recoverSigner(signedMessageHash, sig);
 
-    assert(_signatory == arbitrator.address, "Invalid signatory")
+    assert(_signatory == arbitrator.address, "Invalid signatory");
 
     // Complete the trade
-    res = await escrowFacetERC20Contract.connect(seller).claimDisputedOrderERC20(tradeHash, sig)
+    res = await escrowFacetERC20Contract.connect(seller).claimDisputedOrderERC20(tradeHash, sig);
 
     escrowStruct = await adminFacetContract.getEscrow(tradeHash);
-    assert(escrowStruct[7] == false, "Escrow still active")
+    assert(escrowStruct[7] == false, "Escrow still active");
 
-    const newBalanceOfSeller = await tokenContract.balanceOf(seller)
-    const newBalanceOfBuyer = await tokenContract.balanceOf(buyer)
-    const newBalanceOfContract = await tokenContract.balanceOf(diamondAddress)
-    const newBalanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
+    // Check final balances of seller, buyer, contract, and fee account
+    const newBalanceOfSeller = await tokenContract.balanceOf(seller);
+    const newBalanceOfBuyer = await tokenContract.balanceOf(buyer);
+    const newBalanceOfContract = await tokenContract.balanceOf(diamondAddress);
+    const newBalanceOfFeeAddress = await tokenContract.balanceOf(feeAccount);
 
-    assert(balanceOfSeller == newBalanceOfSeller, "Fee calculations are incorrect")
-    assert(balanceOfBuyer == newBalanceOfBuyer, "Fee calculations are incorrect")
-    assert(balanceOfContract == newBalanceOfContract, "Fee calculations are incorrect")
-    assert(balanceOfFeeAddress == newBalanceOfFeeAddress, "Fee calculations are incorrect")
-
+    // Assertions to verify balance changes
+    assert(balanceOfSeller == newBalanceOfSeller, "Fee calculations are incorrect");
+    assert(balanceOfBuyer == newBalanceOfBuyer, "Fee calculations are incorrect");
+    assert(balanceOfContract == newBalanceOfContract, "Fee calculations are incorrect");
+    assert(balanceOfFeeAddress == newBalanceOfFeeAddress, "Fee calculations are incorrect");
   })
-
+  /**
+   * Test case to create and claim a disputed order by the buyer using ERC20 currency.
+   * This test ensures that the trade is created and claimed successfully,
+   * and verifies the balances of the buyer, seller, contract, and fee account.
+   */
   it("EscrowFacet: Create and Claim dispute (Buyer)", async () => {
     const extTradeIdentifier = ethers.encodeBytes32String("0567");
-    const WEI_VALUE = 10000;
-    const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0)
+    const amount = 10000;
 
-    const feePerParty = BigInt(WEI_VALUE * 0.005)
+    // Retrieve the fee from the admin facet contract
+    const fee = await adminFacetContract.getFees();
 
-    const WEI_VALUE_TO_APPROVE = WEI_VALUE * 2
-    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(WEI_VALUE_TO_APPROVE.toString(), 0)
+    // Calculate order values based on the ERC20 currency and fee
+    const { orderValue, orderValueToSend, sellerFees } = await getOrderValues({ amount, fee, type: 'ERC20' });
 
-    let balanceOfSeller = await tokenContract.balanceOf(seller)
-    let balanceOfBuyer = await tokenContract.balanceOf(buyer)
-    let balanceOfContract = await tokenContract.balanceOf(diamondAddress)
-    let balanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
-    await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
+    // Check initial balances of seller, buyer, contract, and fee account
+    const balanceOfSeller = await tokenContract.balanceOf(seller);
+    const balanceOfBuyer = await tokenContract.balanceOf(buyer);
+    const balanceOfContract = await tokenContract.balanceOf(diamondAddress);
+    const balanceOfFeeAddress = await tokenContract.balanceOf(feeAccount);
 
+    // Approve the escrow value to be transferred from the seller to the contract
+    await tokenContract.connect(seller).increaseAllowance(diamondAddress, orderValueToSend);
+
+    // Create escrow for ERC20 currency
     let res = await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
       buyer.address,
-      ESCROW_VALUE,
+      orderValue,
       extTradeIdentifier,
       tokenContract.target
-    )
-    const response = await res.wait()
+    );
+    const response = await res.wait();
 
-    const tradeHash = response.logs[2].args[0]
+    const tradeHash = response.logs[2].args[0];
     let escrowStruct = await adminFacetContract.getEscrow(tradeHash);
-    assert(escrowStruct[7] == true, "Escrow is not active")
+    assert(escrowStruct[7] == true, "Escrow is not active");
 
-    // escrowFacet.
-    const messageHash = await escrowFacet.getMessageHash(tradeHash, buyer.address)
+    // Generate and verify the message hash and signature
+    const messageHash = await escrowFacet.getMessageHash(tradeHash, buyer.address);
     const sig = await arbitrator.signMessage(ethers.getBytes(messageHash));
     const signedMessageHash = await escrowFacet.getEthSignedMessageHash(messageHash);
     const _signatory = await escrowFacet.recoverSigner(signedMessageHash, sig);
 
-    assert(_signatory == arbitrator.address, "Invalid signatory")
+    assert(_signatory == arbitrator.address, "Invalid signatory");
 
     // Complete the trade
-    res = await escrowFacetERC20Contract.connect(buyer).claimDisputedOrderERC20(tradeHash, sig)
+    res = await escrowFacetERC20Contract.connect(buyer).claimDisputedOrderERC20(tradeHash, sig);
 
     escrowStruct = await adminFacetContract.getEscrow(tradeHash);
-    assert(escrowStruct[7] == false, "Escrow still active")
+    assert(escrowStruct[7] == false, "Escrow still active");
 
-    const newBalanceOfSeller = await tokenContract.balanceOf(seller)
-    const newBalanceOfBuyer = await tokenContract.balanceOf(buyer)
-    const newBalanceOfContract = await tokenContract.balanceOf(diamondAddress)
-    const newBalanceOfFeeAddress = await tokenContract.balanceOf(feeAccount)
+    // Check final balances of seller, buyer, contract, and fee account
+    const newBalanceOfSeller = await tokenContract.balanceOf(seller);
+    const newBalanceOfBuyer = await tokenContract.balanceOf(buyer);
+    const newBalanceOfContract = await tokenContract.balanceOf(diamondAddress);
+    const newBalanceOfFeeAddress = await tokenContract.balanceOf(feeAccount);
 
-    assert(balanceOfSeller - (ESCROW_VALUE + feePerParty) == newBalanceOfSeller, "Fee calculations are incorrect")
-    assert(balanceOfBuyer + (ESCROW_VALUE - feePerParty) == newBalanceOfBuyer, "Fee calculations are incorrect")
-    assert(newBalanceOfContract == balanceOfContract, "Fee calculations are incorrect")
-    assert(balanceOfFeeAddress + (feePerParty + feePerParty) == newBalanceOfFeeAddress, "Fee calculations are incorrect")
-
+    // Assertions to verify balance changes
+    assert(balanceOfSeller - (orderValue + sellerFees) == newBalanceOfSeller, "Fee calculations are incorrect");
+    assert(balanceOfBuyer + (orderValue - sellerFees) == newBalanceOfBuyer, "Fee calculations are incorrect");
+    assert(newBalanceOfContract == balanceOfContract, "Fee calculations are incorrect");
+    assert(BigInt(newBalanceOfFeeAddress) - BigInt(balanceOfFeeAddress) == sellerFees * BigInt(2), "Fee calculations are incorrect");
   })
 })

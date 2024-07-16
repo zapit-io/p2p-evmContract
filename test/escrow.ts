@@ -13,25 +13,14 @@ const { getSelectors, FacetCutAction } = require('../scripts/libraries/diamond.j
  * @param {Object} params - The parameters for the order.
  * @param {number} params.amount - The value of the order.
  * @param {number} params.fee - The fee percentage to be applied.
- * @param {string} params.type - The type of the order, either 'NATIVE' or 'ERC20'.
+ * @param {string} params.number - The decimals to be applied.
  * @returns {Object} - An object containing the order value, seller fees, and total order value.
  * @throws {Error} - Throws an error if the type is unsupported.
  */
-const getOrderValues = ({ amount, fee, type }: { amount: number, fee: number, type: string }) => {
-  let orderValue: bigint, orderValueToSend: bigint, feePerParty: bigint;
-  switch (type) {
-    case 'NATIVE':
-      orderValue = ethers.parseUnits(amount.toString(), 18);
-      break;
-    case 'ERC20':
-      orderValue = ethers.parseUnits(amount.toString(), 0);
-      break;
-    default:
-      throw new Error(`Unsupported type: ${type}`);
-  }
-
-  feePerParty = (orderValue * BigInt(fee)) / (BigInt(10000) * BigInt(2));
-  orderValueToSend = orderValue + feePerParty;
+const getOrderValues = ({ amount, fee, decimals }: { amount: number, fee: number, decimals: number }) => {
+  const orderValue = ethers.parseUnits(amount.toString(), decimals);
+  const feePerParty = (orderValue * BigInt(fee)) / (BigInt(10000) * BigInt(2));
+  const orderValueToSend = orderValue + feePerParty;
   return { orderValue, orderValueToSend, feePerParty };
 }
 
@@ -55,7 +44,8 @@ describe('Tests', async function () {
     ownershipFacetContract: any,
     secondaryDeployer: any,
     seller: any,
-    tokenContract: any;
+    tokenContract: any,
+    tokenContractB: any;
 
   const adminRoleBytes32 = ethers.keccak256(ethers.toUtf8Bytes("ADMIN_ROLE"));
   /**
@@ -86,12 +76,17 @@ describe('Tests', async function () {
 
     // Deploy and mint tokens for the deployer, buyer, and seller
     tokenContract = await deployToken();
+    tokenContractB = await deployToken();
 
     const amount = 100000;
     const mintAmount = ethers.parseUnits(amount.toString(), 0);
     await tokenContract.mint(deployer.address, mintAmount);
     await tokenContract.mint(buyer.address, mintAmount);
     await tokenContract.mint(seller.address, mintAmount);
+
+    await tokenContractB.mint(deployer.address, mintAmount);
+    await tokenContractB.mint(buyer.address, mintAmount);
+    await tokenContractB.mint(seller.address, mintAmount);
   })
 
   /**
@@ -464,7 +459,7 @@ describe('Tests', async function () {
       // Retrieve the fee from the admin facet contract
       const fee = await adminFacetContract.getFees();
       // Calculate order values based on the ERC20 currency and fee
-      const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, type: 'ERC20' });
+      const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, decimals: 0 });
 
       await tokenContract.connect(seller).increaseAllowance(diamondAddress, orderValueToSend);
 
@@ -501,7 +496,7 @@ describe('Tests', async function () {
       // Retrieve the fee from the admin facet contract
       const fee = await adminFacetContract.getFees();
       // Calculate order values based on the ERC20 currency and fee
-      const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, type: 'ERC20' });
+      const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, decimals: 0 });
       await tokenContract.connect(seller).increaseAllowance(diamondAddress, orderValueToSend);
 
       await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
@@ -545,7 +540,7 @@ describe('Tests', async function () {
     const extTradeIdentifier = ethers.encodeBytes32String("123");
     const amount = 0.237;
     const fee = await adminFacetContract.getFees();
-    const { orderValue, orderValueToSend, feePerParty } = getOrderValues({ amount, fee, type: 'NATIVE' });
+    const { orderValue, orderValueToSend, feePerParty } = getOrderValues({ amount, fee, decimals: 18 });
 
     // Check initial balances of buyer, seller, and fee account
     const sellerBalanceBefore = await ethers.provider.getBalance(seller.address);
@@ -601,11 +596,11 @@ describe('Tests', async function () {
   it("EscrowFacet: Create and Cancel order", async () => {
     // Define external trade identifier and order value in ETH
     const extTradeIdentifier = ethers.encodeBytes32String("234");
-    const amount = 1;
+    const amount = 169;
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
     // Calculate order values based on the native currency and fee
-    const { orderValue, orderValueToSend } = getOrderValues({ amount, fee, type: 'NATIVE' });
+    const { orderValue, orderValueToSend } = getOrderValues({ amount, fee, decimals: 18 });
 
     // Check initial balances of buyer, seller, and fee account
     const sellerBalanceBefore = await ethers.provider.getBalance(seller.address);
@@ -656,7 +651,7 @@ describe('Tests', async function () {
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
     // Calculate order values based on the native currency and fee
-    const { orderValue, orderValueToSend, feePerParty } = getOrderValues({ amount, fee, type: 'NATIVE' });
+    const { orderValue, orderValueToSend, feePerParty } = getOrderValues({ amount, fee, decimals: 18 });
 
     // Check initial balances of buyer, seller, and fee account
     const sellerBalanceBefore = await ethers.provider.getBalance(seller.address);
@@ -714,11 +709,11 @@ describe('Tests', async function () {
    */
   it("EscrowFacet: Create and Claim dispute (Seller)", async () => {
     const extTradeIdentifier = ethers.encodeBytes32String("456");
-    const amount = 1;
+    const amount = 0.1;
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
     // Calculate order values based on the native currency and fee
-    const { orderValue, orderValueToSend } = getOrderValues({ amount, fee, type: 'NATIVE' });
+    const { orderValue, orderValueToSend } = getOrderValues({ amount, fee, decimals: 18 });
 
     // Check funds of buyer, seller and fee address
     const sellerBalanceBefore = await ethers.provider.getBalance(seller.address)
@@ -773,7 +768,7 @@ describe('Tests', async function () {
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
     // Calculate order values based on the ERC20 currency and fee
-    const { orderValue, orderValueToSend, feePerParty } = await getOrderValues({ amount, fee, type: 'ERC20' });
+    const { orderValue, orderValueToSend, feePerParty } = await getOrderValues({ amount, fee, decimals: 0 });
 
     // Check initial balances of buyer, seller, contract, and fee account
     const balanceOfSeller = await tokenContract.balanceOf(seller);
@@ -835,7 +830,7 @@ describe('Tests', async function () {
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
     // Calculate order values based on the ERC20 currency and fee
-    const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, type: 'ERC20' });
+    const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, decimals: 0 });
 
     // Approve the escrow value to be transferred from the seller to the contract
     await tokenContract.connect(seller).increaseAllowance(diamondAddress, orderValueToSend);
@@ -889,7 +884,7 @@ describe('Tests', async function () {
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
     // Calculate order values based on the ERC20 currency and fee
-    const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, type: 'ERC20' });
+    const { orderValue, orderValueToSend } = await getOrderValues({ amount, fee, decimals: 0 });
 
     // Check initial balances of seller, buyer, contract, and fee account
     let balanceOfSeller = await tokenContract.balanceOf(seller);
@@ -946,11 +941,11 @@ describe('Tests', async function () {
    */
   it("EscrowFacet: Create and Claim dispute (Buyer)", async () => {
     const extTradeIdentifier = ethers.encodeBytes32String("0567");
-    const amount = 10000;
+    const amount = 1;
     // Retrieve the fee from the admin facet contract
     const fee = await adminFacetContract.getFees();
     // Calculate order values based on the ERC20 currency and fee
-    const { orderValue, orderValueToSend, feePerParty } = await getOrderValues({ amount, fee, type: 'ERC20' });
+    const { orderValue, orderValueToSend, feePerParty } = await getOrderValues({ amount, fee, decimals: 0 });
 
     // Check initial balances of seller, buyer, contract, and fee account
     const balanceOfSeller = await tokenContract.balanceOf(seller);

@@ -26,8 +26,8 @@ describe('Tests', async function () {
     seller: any,
     tokenContract: any;
 
-  const ETHERS_VALUE = 100000;
-  const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+  const WEI_VALUE = 100000;
+  const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0)
   const adminRoleBytes32 = ethers.keccak256(ethers.toUtf8Bytes("ADMIN_ROLE"));
 
   before(async function () {
@@ -297,11 +297,11 @@ describe('Tests', async function () {
   it("PAUSABLE: Fail to create order due to paused contract", async () => {
     try {
       const EXT_TRADE_RANDOM = ethers.encodeBytes32String("x-0234");
-      const ETHERS_VALUE = 10000;
-      const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+      const WEI_VALUE = 10000;
+      const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0)
 
-      const ETHERS_VALUE_TO_APPROVE = ETHERS_VALUE * 2
-      const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
+      const WEI_VALUE_TO_APPROVE = WEI_VALUE * 2
+      const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(WEI_VALUE_TO_APPROVE.toString(), 0)
       await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
 
       await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
@@ -325,11 +325,11 @@ describe('Tests', async function () {
   it("WHITELIST: Fail to create order as currency is not whitelisted", async () => {
     try {
       const EXT_TRADE_RANDOM = ethers.encodeBytes32String("x-0234");
-      const ETHERS_VALUE = 10000;
-      const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+      const WEI_VALUE = 10000;
+      const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0)
 
-      const ETHERS_VALUE_TO_APPROVE = ETHERS_VALUE * 2
-      const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
+      const WEI_VALUE_TO_APPROVE = WEI_VALUE * 2
+      const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(WEI_VALUE_TO_APPROVE.toString(), 0)
       await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
 
       await escrowFacetERC20Contract.connect(seller).createEscrowERC20(
@@ -356,11 +356,11 @@ describe('Tests', async function () {
 
   it("EscrowFacet: Create and Complete Native currency trade", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("123");
-    const ETHERS_VALUE = 1000;
+    const WEI_VALUE = 1000;
 
-    const ESCROW_VALUE = ethers.parseEther(ETHERS_VALUE.toString());
+    const ESCROW_VALUE = ethers.parseEther(WEI_VALUE.toString());
     const ESCROW_TOTAL_VALUE = ethers.parseEther(
-      `${ETHERS_VALUE + (ETHERS_VALUE * FEES) / (10000 * 2)}`)
+      `${WEI_VALUE + (WEI_VALUE * FEES) / (10000 * 2)}`)
 
 
     // Check funds of buyer, seller and fee address
@@ -412,11 +412,11 @@ describe('Tests', async function () {
 
   it("EscrowFacet: Create and Cancel order", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("234");
-    const ETHERS_VALUE = 1;
+    const WEI_VALUE = 1;
 
-    const ESCROW_VALUE = ethers.parseEther(ETHERS_VALUE.toString());
+    const ESCROW_VALUE = ethers.parseEther(WEI_VALUE.toString());
     const ESCROW_TOTAL_VALUE = ethers.parseEther(
-      `${ETHERS_VALUE + (ETHERS_VALUE * FEES) / (10000 * 2)}`)
+      `${WEI_VALUE + (WEI_VALUE * FEES) / (10000 * 2)}`)
 
     // Check funds of buyer, seller and fee address
     const sellerBalanceBefore = await ethers.provider.getBalance(seller.address)
@@ -458,11 +458,11 @@ describe('Tests', async function () {
 
   it("EscrowFacet: Create and Claim dispute (Buyer)", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("345");
-    const ETHERS_VALUE = 1;
+    const WEI_VALUE = 1;
 
-    const ESCROW_VALUE = ethers.parseEther(ETHERS_VALUE.toString());
+    const ESCROW_VALUE = ethers.parseEther(WEI_VALUE.toString());
     const ESCROW_TOTAL_VALUE = ethers.parseEther(
-      `${ETHERS_VALUE + (ETHERS_VALUE * FEES) / (10000 * 2)}`)
+      `${WEI_VALUE + (WEI_VALUE * FEES) / (10000 * 2)}`)
 
     // Check funds of buyer, seller and fee address
     const sellerBalanceBefore = await ethers.provider.getBalance(seller.address)
@@ -513,11 +513,11 @@ describe('Tests', async function () {
 
   it("EscrowFacet: Create and Claim dispute (Seller)", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("456");
-    const ETHERS_VALUE = 1;
+    const WEI_VALUE = 1;
 
-    const ESCROW_VALUE = ethers.parseEther(ETHERS_VALUE.toString());
+    const ESCROW_VALUE = ethers.parseEther(WEI_VALUE.toString());
     const ESCROW_TOTAL_VALUE = ethers.parseEther(
-      `${ETHERS_VALUE + (ETHERS_VALUE * FEES) / (10000 * 2)}`)
+      `${WEI_VALUE + (WEI_VALUE * FEES) / (10000 * 2)}`)
 
 
     // Check funds of buyer, seller and fee address
@@ -568,13 +568,13 @@ describe('Tests', async function () {
 
   it("EscrowFacetERC20Contract: Create and Complete Native currency trade", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("0123");
-    const ETHERS_VALUE = 10000;
-    const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+    const WEI_VALUE = 10000;
+    const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0)
 
-    const feePerParty = BigInt(ETHERS_VALUE * 0.005)
+    const feePerParty = BigInt(WEI_VALUE * 0.005)
 
-    const ETHERS_VALUE_TO_APPROVE = ETHERS_VALUE * 2
-    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
+    const WEI_VALUE_TO_APPROVE = WEI_VALUE * 2
+    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(WEI_VALUE_TO_APPROVE.toString(), 0)
 
     const balanceOfSeller = await tokenContract.balanceOf(seller)
     const balanceOfBuyer = await tokenContract.balanceOf(buyer)
@@ -624,13 +624,13 @@ describe('Tests', async function () {
 
   it("EscrowFacet: Create and Cancel order", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("0234");
-    const ETHERS_VALUE = 10000;
-    const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+    const WEI_VALUE = 10000;
+    const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0)
 
-    const feePerParty = BigInt(ETHERS_VALUE * 0.005)
+    const feePerParty = BigInt(WEI_VALUE * 0.005)
 
-    const ETHERS_VALUE_TO_APPROVE = ETHERS_VALUE * 2
-    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
+    const WEI_VALUE_TO_APPROVE = WEI_VALUE * 2
+    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(WEI_VALUE_TO_APPROVE.toString(), 0)
     await tokenContract.connect(seller).increaseAllowance(diamondAddress, ESCROW_VALUE_TO_APPROVE)
 
     let balanceOfSeller = await tokenContract.balanceOf(seller)
@@ -670,13 +670,13 @@ describe('Tests', async function () {
 
   it("EscrowFacet: Create and Claim dispute (Seller)", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("0456");
-    const ETHERS_VALUE = 10000;
-    const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+    const WEI_VALUE = 10000;
+    const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0)
 
-    const feePerParty = BigInt(ETHERS_VALUE * 0.005)
+    const feePerParty = BigInt(WEI_VALUE * 0.005)
 
-    const ETHERS_VALUE_TO_APPROVE = ETHERS_VALUE * 2
-    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
+    const WEI_VALUE_TO_APPROVE = WEI_VALUE * 2
+    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(WEI_VALUE_TO_APPROVE.toString(), 0)
 
     let balanceOfSeller = await tokenContract.balanceOf(seller)
     let balanceOfBuyer = await tokenContract.balanceOf(buyer)
@@ -724,13 +724,13 @@ describe('Tests', async function () {
 
   it("EscrowFacet: Create and Claim dispute (Buyer)", async () => {
     const EXT_TRADE_RANDOM = ethers.encodeBytes32String("0567");
-    const ETHERS_VALUE = 10000;
-    const ESCROW_VALUE = ethers.parseUnits(ETHERS_VALUE.toString(), 0)
+    const WEI_VALUE = 10000;
+    const ESCROW_VALUE = ethers.parseUnits(WEI_VALUE.toString(), 0)
 
-    const feePerParty = BigInt(ETHERS_VALUE * 0.005)
+    const feePerParty = BigInt(WEI_VALUE * 0.005)
 
-    const ETHERS_VALUE_TO_APPROVE = ETHERS_VALUE * 2
-    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(ETHERS_VALUE_TO_APPROVE.toString(), 0)
+    const WEI_VALUE_TO_APPROVE = WEI_VALUE * 2
+    const ESCROW_VALUE_TO_APPROVE = ethers.parseUnits(WEI_VALUE_TO_APPROVE.toString(), 0)
 
     let balanceOfSeller = await tokenContract.balanceOf(seller)
     let balanceOfBuyer = await tokenContract.balanceOf(buyer)

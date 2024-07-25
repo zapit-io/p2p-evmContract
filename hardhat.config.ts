@@ -46,7 +46,17 @@ module.exports = {
         mnemonic: process.env.MNEMONIC,
         count: 6,
       },
+      etherscan: {
+        mainnet: {
+          fuji: "avascan" // apiKey is not required, just set a placeholder
+        },
+      }
     },
+  },
+  etherscan: {
+    apiKey: {
+      avalanche: 'avascan' // Add your API key here
+    }
   },
   settings: {
     optimizer: {

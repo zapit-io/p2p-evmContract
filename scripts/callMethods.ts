@@ -314,13 +314,15 @@ async function removeMethodFromFacet() {
   const feeAddress = '0x274b3608f837f9102cCcC89Ed2312299e3FD9fE5'
 
   const FacetNames = [
-    'SignatureFacet',
-    'EscrowFacet',
+    // 'SignatureFacet',
+    // 'EscrowFacet',
+    'EscrowFacet'
   ]
 
   const FacetNamesObj: any = {
-    'SignatureFacet': '0x765ece317F3cf8CEd10f588226e3fd715932e0d2',
-    'EscrowFacet': '0xc2EDC3ac51D82336b39B08C7E68201be69171113',
+    'EscrowFacet': '0x47d8eB2497Fed7f6a28a6000dac18415112F9A94'
+    // 'SignatureFacet': '0x765ece317F3cf8CEd10f588226e3fd715932e0d2',
+    // 'EscrowFacet': '0xc2EDC3ac51D82336b39B08C7E68201be69171113',
   }
 
   const selectorsToIgnore = []
@@ -331,6 +333,8 @@ async function removeMethodFromFacet() {
     const facet = await ethers.getContractAt(FacetName, FacetNamesObj[FacetName])
 
     const signatureFacetSelectors = getSelectors(facet, [])
+
+    console.log(getSelectors(facet, selectorsToIgnore))
 
     console.log("Facet address", facet.target)
     // console.log("Facet selectors", signatureFacetSelectors)
@@ -393,7 +397,7 @@ async function main() {
 
   // await getArbitrator(contract)
   // await setArbitrator(contract)
-  await signatureGeneration()
+  // await signatureGeneration()
 
   // await createEscrow()
 

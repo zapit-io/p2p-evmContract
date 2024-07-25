@@ -15,8 +15,10 @@ function getSelectors(contract, selectorsToIgnore) {
         acc.push(bytes4)
       }
     }
+
     return acc
   }, [])
+
   selectors.contract = contract
   selectors.remove = remove
   selectors.get = get

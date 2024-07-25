@@ -68,11 +68,11 @@ async function signatureGeneration() {
   const accounts = await ethers.getSigners()
   console.log(accounts[0].address)
 
-  const diamondLoupe = await ethers.getContractAt('DiamondLoupeFacet', deployedAddress)
+  // const diamondLoupe = await ethers.getContractAt('DiamondLoupeFacet', deployedAddress)
 
-  let res;
-  res = await diamondLoupe.facets()
-  console.log(res)
+  // let res;
+  // res = await diamondLoupe.facets()
+  // console.log(res)
 
   // 0xa0daEef8BCb2aBB8Fdb010F5FC6Ef010615CAf6C
 
@@ -80,13 +80,13 @@ async function signatureGeneration() {
   const fee = await adminFacet.getFees()
   console.log(fee)
 
-  // const signatureLibrary = await ethers.getContractAt("SignatureFacet", deployedAddress);
+  const signatureLibrary = await ethers.getContractAt("SignatureFacet", deployedAddress);
   // // const signatureLibrary = await ethers.getContractAt("Signature", '0xa0daEef8BCb2aBB8Fdb010F5FC6Ef010615CAf6C');
 
-  // const tradeId = '0x8e8f9834e76773330cc3da647357246aeb62b00938647cad62f8e6b44df336d9'
-  // const address = '0x743a2c5bf4ee9cc700dc9b797b128897cae7889c'
-  // const _signature = await signatureLibrary.getMessageHash(tradeId, address)
-  // console.log(_signature)
+  const tradeId = '0x8e8f9834e76773330cc3da647357246aeb62b00938647cad62f8e6b44df336d9'
+  const address = '0x743a2c5bf4ee9cc700dc9b797b128897cae7889c'
+  const _signature = await signatureLibrary.getMessageHash(tradeId, address)
+  console.log(_signature)
 
   return
 
@@ -311,18 +311,18 @@ async function readStorage() {
 }
 
 async function removeMethodFromFacet() {
-  const diamondAddr = '0x5E669953fFd4A07869a4ba954ee88c13568e0935'
-  const diamondInitAddr = '0xB0F857Bdd7c72eff5B908f8B759b4d5cC720d977'
   const feeAddress = '0x274b3608f837f9102cCcC89Ed2312299e3FD9fE5'
 
   const FacetNames = [
-    'SignatureFacet',
-    'EscrowFacetERC20',
+    // 'SignatureFacet',
+    // 'EscrowFacet',
+    'EscrowFacet'
   ]
 
   const FacetNamesObj: any = {
-    'SignatureFacet': '0x74Bb5c1c3797aa5a2Cf9db386E662D733e23d11b',
-    'EscrowFacetERC20': '0x4E3e7F71e3c92ac7b31196a81862E6C74A91b330',
+    'EscrowFacet': '0x47d8eB2497Fed7f6a28a6000dac18415112F9A94'
+    // 'SignatureFacet': '0x765ece317F3cf8CEd10f588226e3fd715932e0d2',
+    // 'EscrowFacet': '0xc2EDC3ac51D82336b39B08C7E68201be69171113',
   }
 
   const selectorsToIgnore = []
@@ -333,6 +333,8 @@ async function removeMethodFromFacet() {
     const facet = await ethers.getContractAt(FacetName, FacetNamesObj[FacetName])
 
     const signatureFacetSelectors = getSelectors(facet, [])
+
+    console.log(getSelectors(facet, selectorsToIgnore))
 
     console.log("Facet address", facet.target)
     // console.log("Facet selectors", signatureFacetSelectors)
@@ -352,19 +354,23 @@ async function removeMethodFromFacet() {
     }
   }
 
-  const diamondInit = await ethers.getContractAt('DiamondInit', diamondInitAddr)
+  console.log(cut)
+
+  const diamondInitContract = await ethers.getContractAt('DiamondInit', diamondInit)
+
+  // return
 
   // call to init function
-  let functionCall = diamondInit.interface.encodeFunctionData(
+  let functionCall = diamondInitContract.interface.encodeFunctionData(
     'init',
     [feeAddress, 100]
   )
 
-  const diamondCutFacet = await ethers.getContractAt('DiamondCutFacet', diamondAddr)
+  const diamondCutFacet = await ethers.getContractAt('DiamondCutFacet', deployedAddress)
 
   const result = await diamondCutFacet.diamondCut(
     cut,
-    diamondInit.target,
+    diamondInitContract.target,
     functionCall
   )
   console.log('------')
@@ -385,7 +391,7 @@ async function main() {
 
   // await getEscrow()
 
-  await whitelistCurrency()
+  // await whitelistCurrency()
 
   // console.log(await escrowFee())
 

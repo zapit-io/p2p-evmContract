@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.24;
+pragma solidity 0.8.24;
 
 import "../interfaces/IERC20.sol";
 import { LibDiamond } from "../libraries/LibDiamond.sol";

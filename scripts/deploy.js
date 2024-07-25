@@ -34,9 +34,6 @@ async function main() {
   const accounts = await ethers.getSigners()
   const contractOwner = accounts[0]
 
-  // const diamondCutFacet = await ethers.deployContract("DiamondCutFacet");
-  // console.log(`const diamondCutFacet = '${diamondCutFacet.target}'`)
-
   const diamond = await ethers.deployContract("Diamond", [contractOwner.address]);
   console.log(`const diamond = '${diamond.target}'`)
 

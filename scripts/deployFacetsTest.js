@@ -20,6 +20,9 @@ const { ContractFactory } = require('ethers')
 // const AdminFacet = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
 // const EscrowFacetERC20 = '0x4aDC11C8e2418aB07D7931A41d48EC102C1DBDeE'
 
+// Deploying facets
+// const EscrowFacet = '0xC7d8fe2AA68CF42204bAbD005655F4b461a549c5'
+
 async function main(params) {
 
   let diamondAddr = params.diamondAddr
@@ -44,8 +47,6 @@ async function main(params) {
     ]
   }
 
-  console.log('facetNames: ', facetNames)
-
   const selectorsToIgnore = []
 
   // // To be used when adding a new contract that uses signature facet's methods
@@ -59,62 +60,71 @@ async function main(params) {
 
   const cut = []
 
-  for (const FacetName of facetNames) {
-    const facet = await ethers.deployContract(FacetName);
+  // for (const FacetName of facetNames) {
+  //   const facet = await ethers.deployContract(FacetName);
 
-    console.log(`const ${FacetName} = '${facet.target}'`)
-    const signatureFacetSelectors = getSelectors(facet, [])
+  //   console.log(`const ${FacetName} = '${facet.target}'`)
+  //   const signatureFacetSelectors = getSelectors(facet, [])
 
-    cut.push({
-      facetAddress: facet.target,
-      action: FacetCutAction.Add,
-      functionSelectors: getSelectors(facet, selectorsToIgnore)
-    })
+  //   cut.push({
+  //     facetAddress: facet.target,
+  //     action: FacetCutAction.Add,
+  //     functionSelectors: getSelectors(facet, selectorsToIgnore)
+  //   })
 
-    if (FacetName == 'SignatureFacet' || 'AdminFacet') {
-      for (const functions of signatureFacetSelectors) {
-        selectorsToIgnore.push(functions)
-      }
-    }
+  //   if (FacetName == 'SignatureFacet') {
+  //     for (const functions of signatureFacetSelectors) {
+  //       selectorsToIgnore.push(functions)
+  //     }
+  //   }
 
-  }
+  // }
 
   // ----------------
   // When contracts are already deployed
   // ----------------
 
-  // const facetNamesObj = {
-  //   // 'SignatureFacet': '0x765ece317F3cf8CEd10f588226e3fd715932e0d2',
-  //   // 'EscrowFacet': '0xc2EDC3ac51D82336b39B08C7E68201be69171113',
-  //   // 'AdminFacet': AdminFacet,
-  //   // 'EscrowFacetERC20': '0x4aDC11C8e2418aB07D7931A41d48EC102C1DBDeE'
-  // }
+  const facetNamesObj = {
+    // 'SignatureFacet': '0x765ece317F3cf8CEd10f588226e3fd715932e0d2',
+    'EscrowFacet': '0xC7d8fe2AA68CF42204bAbD005655F4b461a549c5',
+    // 'AdminFacet': AdminFacet,
+    // 'EscrowFacetERC20': '0x4aDC11C8e2418aB07D7931A41d48EC102C1DBDeE'
+  }
 
-  // for (const [name, address] of Object.entries(facetNamesObj)) {
-  //   const facet = await ethers.getContractAt(name, address)
-  //   const signatureFacetSelectors = getSelectors(facet, selectorsToIgnore)
+  for (const [name, address] of Object.entries(facetNamesObj)) {
+    const facet = await ethers.getContractAt(name, address)
+    const signatureFacetSelectors = getSelectors(facet, selectorsToIgnore)
 
-  //   if (name == 'SignatureFacet') {
-  //     for (const functions of signatureFacetSelectors) {
-  //       selectorsToIgnore.push(functions)
-  //     }
-  //   } else {
-  //     cut.push({
-  //       facetAddress: facet.target,
-  //       action: FacetCutAction.Add,
-  //       functionSelectors: signatureFacetSelectors
-  //     })
-  //   }
-  // }
+    if (name == 'SignatureFacet') {
+      for (const functions of signatureFacetSelectors) {
+        selectorsToIgnore.push(functions)
+      }
+    } else {
+      cut.push({
+        facetAddress: facet.target,
+        action: FacetCutAction.Add,
+        functionSelectors: signatureFacetSelectors
+      })
+    }
+  }
 
+  console.log(cut, feeAddress)
   // return
 
   try {
+
+    console.log('diamondInitAddr: ', diamondInitAddr)
     const diamondInit = await ethers.getContractAt('DiamondInit', diamondInitAddr)
     if (!feeAddress) {
       const accounts = await ethers.getSigners()
       feeAddress = accounts[4].address
     }
+
+    console.log('feeAddress: ', feeAddress)
+    console.log('diamondInit', diamondInit)
+    console.log('diamondInit address', diamondInit.target)
+
+    // return
 
     // call to init function
     let functionCall = diamondInit.interface.encodeFunctionData(
@@ -156,8 +166,8 @@ if (require.main === module) {
   // const diamondInit = '0x55729B845A77Eeba702C7d7f4A5eA5dC26BD06a3'
 
   // Ethereum
-  // const deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
-  // const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
+  const deployedAddress = '0x5C3dD6b31d3a0DFAeAa0D21Dd9Ba3C9C7A1B4014'
+  const diamondInit = '0x942876460D7065bD748eDeAe32604Ad02577CA75'
 
 
   main({ diamondAddr: deployedAddress, diamondInitAddr: diamondInit, feeAddress, facetNames })
@@ -172,3 +182,4 @@ if (require.main === module) {
 
 exports.deployFacets = main
 // exports.deployFacets = deployFacets
+

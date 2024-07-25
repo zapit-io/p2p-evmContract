@@ -7,25 +7,21 @@ const FacetCutAction = { Add: 0, Replace: 1, Remove: 2 }
 
 // get function selectors from ABI
 function getSelectors(contract, selectorsToIgnore) {
-  // console.log(contract.target, contract.interface.fragments)
-  // console.log(contract)
-
   const signatures = Object.values(contract.interface.fragments)
   const selectors = signatures.reduce((acc, val) => {
     if (val.name !== 'init' && val.type === 'function') {
       const bytes4 = FunctionFragment.getSelector(val.name, val.inputs)
       if (!selectorsToIgnore.includes(bytes4)) {
-        console.log(`Adding: [Name: ${val.name}, sigHash: ${bytes4}]`)
         acc.push(bytes4)
       }
     }
+
     return acc
   }, [])
-  // console.log(selectors)
+
   selectors.contract = contract
   selectors.remove = remove
   selectors.get = get
-  console.log('----------------------------------')
   return selectors
 }
 
